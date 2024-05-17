@@ -107,7 +107,7 @@ export class SearchAssessmentTrackingDto {
 
   @ApiProperty({
     type: sortDto,
-    description: "Pagination",
+    description: "Ordering",
   })
   @IsObject()
   sort: sortDto;

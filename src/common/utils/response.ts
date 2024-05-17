@@ -6,6 +6,7 @@ export default class APIResponse {
     id: string,
     result: Type,
     statusCode: string,
+    successMessage:string,
   ): ServerResponse {
     try {
       const params: Params = {
@@ -21,6 +22,7 @@ export default class APIResponse {
         ts: new Date().toISOString(),
         params,
         responseCode: statusCode,
+        successMessage: successMessage,
         result,
       };
       return resObj;

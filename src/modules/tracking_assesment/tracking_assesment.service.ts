@@ -28,7 +28,7 @@ export class TrackingAssesmentService {
           apiId,
           'Please entire valid UUID.',
           JSON.stringify('Please entire valid UUID.'),
-          'BAD_REQUEST',
+          '400',
         ),
       );
     }
@@ -54,7 +54,7 @@ export class TrackingAssesmentService {
       
       return response
       .status(HttpStatus.OK)
-      .send(APIResponse.success(apiId, result, "Assessment data fetch successfully."));
+      .send(APIResponse.success(apiId, result, '200', "Assessment data fetch successfully."));
     }catch(e){
       return response
       .status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -80,7 +80,7 @@ export class TrackingAssesmentService {
             apiId,
             'Please entire valid UUID.',
             JSON.stringify('Please entire valid UUID.'),
-            'BAD_REQUEST',
+            '400',
           ),
         );
       }
@@ -88,7 +88,7 @@ export class TrackingAssesmentService {
       const result = await this.assessmentTrackingRepository.save(createAssessmentTrackingDto)
       return response
         .status(HttpStatus.CREATED)
-        .send(APIResponse.success(apiId, { assessmentTrackingId: result.assessmentTrackingId }, 'Assessment submitted successfully.'));
+        .send(APIResponse.success(apiId, { assessmentTrackingId: result.assessmentTrackingId }, '201', 'Assessment submitted successfully.'));
     } catch (e) {
       return response
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -109,19 +109,18 @@ export class TrackingAssesmentService {
     const apiId = 'api.list.assessment';
 
     try {
-      let limit = searchAssessmentTrackingDto['pagination']['pageSize'];
-      let page = searchAssessmentTrackingDto['pagination']['page'];
-      let orderBy = searchAssessmentTrackingDto['sort']['field'];
-      let order = searchAssessmentTrackingDto['sort']['order'];
-      let filters = searchAssessmentTrackingDto['filters'];
+      const { pagination, sort, filters } = searchAssessmentTrackingDto;
+      const limit = pagination?.pageSize;
+      const page = pagination?.page;
+      const orderBy = sort?.field;
+      const order = sort?.order;
+
 
       let offset = 0;
       if (page > 1) {
         offset = (limit) * (page - 1);
       }
 
-
-      
       const whereClause = {};
       if (filters && Object.keys(filters).length > 0) {
         Object.entries(filters).forEach(([key, value]) => {
@@ -138,7 +137,7 @@ export class TrackingAssesmentService {
               apiId,
               'Please entire valid UUID.',
               JSON.stringify('Please entire valid UUID.'),
-              'BAD_REQUEST',
+              '400',
             ),
           );
         }
@@ -154,7 +153,7 @@ export class TrackingAssesmentService {
               apiId,
               'Please entire valid UUID.',
               JSON.stringify('Please entire valid UUID.'),
-              'BAD_REQUEST',
+              '400',
             ),
           );
         }
@@ -187,7 +186,7 @@ export class TrackingAssesmentService {
 
       return response
       .status(HttpStatus.OK)
-      .send(APIResponse.success(apiId, result, "Assessment data fetch successfully."));
+      .send(APIResponse.success(apiId, result, '200', "Assessment data fetch successfully."));
 
     } catch (e) {
       return response
