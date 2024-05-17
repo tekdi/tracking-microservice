@@ -3,15 +3,23 @@ import {
   IsNotEmpty,
   IsString,
   IsNumber,
-  IsDateString,
   IsUUID,
-  IsOptional,
-  IsArray,
   IsObject,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class setFilters {
+  
+  @ApiProperty({
+    type: () => String,
+    description: "Assessment Tracking Id",
+  })
+  @Expose()
+  @IsUUID(undefined, { message: 'Assessment Tracking Id must be a valid UUID' })
+  @IsNotEmpty()
+  assessment_tracking_id: string;
+
+
   @ApiProperty({
     type: () => String,
     description: "User Id",
@@ -67,7 +75,7 @@ export class sortDto {
     type: String,
     description: "Field",
   })
-  @IsUUID(undefined, { message: 'User Id must be a valid UUID' })
+  @IsString()
   @IsNotEmpty()
   field: string;
 
@@ -77,6 +85,7 @@ export class sortDto {
     description: "Order",
   })
   @IsString()
+  @IsNotEmpty()
   order: string;
 }
 

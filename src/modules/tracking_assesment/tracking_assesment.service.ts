@@ -6,6 +6,7 @@ import { CreateAssessmentTrackingDto } from "./dto/traking-assessment-create-dto
 import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
 import { SearchAssessmentTrackingDto } from "./dto/traking-assessment-search-dto";
+import { isUUID } from 'class-validator';
 
 @Injectable()
 export class TrackingAssesmentService {
@@ -19,12 +20,37 @@ export class TrackingAssesmentService {
     request:any, assessmentId:string,response: Response
   ) {
     const apiId = 'api.get.assessment';
+    if(!isUUID(assessmentId)){
+      return response
+      .status(HttpStatus.BAD_REQUEST)
+      .send(
+        APIResponse.error(
+          apiId,
+          'Please entire valid UUID.',
+          JSON.stringify('Please entire valid UUID.'),
+          'BAD_REQUEST',
+        ),
+      );
+    }
     try{
       const result = await this.assessmentTrackingRepository.findOne({
         where: {
           assessment_tracking_id:assessmentId
         }
       })
+
+      if(!result){
+        return response
+        .status(HttpStatus.BAD_REQUEST)
+        .send(
+          APIResponse.error(
+            apiId,
+            'No data found.',
+            JSON.stringify('No data found.'),
+            'BAD_REQUEST',
+          ),
+        );
+      }
       
       return response
       .status(HttpStatus.OK)
@@ -46,6 +72,19 @@ export class TrackingAssesmentService {
   ): Promise<Response> {
     const apiId = 'api.create.assessment';
     try {
+      if(!isUUID(createAssessmentTrackingDto.user_id)){
+        return response
+        .status(HttpStatus.BAD_REQUEST)
+        .send(
+          APIResponse.error(
+            apiId,
+            'Please entire valid UUID.',
+            JSON.stringify('Please entire valid UUID.'),
+            'BAD_REQUEST',
+          ),
+        );
+      }
+
       const result = await this.assessmentTrackingRepository.save(createAssessmentTrackingDto)
       return response
         .status(HttpStatus.CREATED)
@@ -88,6 +127,38 @@ export class TrackingAssesmentService {
         });
       }
 
+      if(whereClause['user_id']){
+        if(!isUUID(whereClause['user_id'])){
+          return response
+          .status(HttpStatus.BAD_REQUEST)
+          .send(
+            APIResponse.error(
+              apiId,
+              'Please entire valid UUID.',
+              JSON.stringify('Please entire valid UUID.'),
+              'BAD_REQUEST',
+            ),
+          );
+        }
+      }
+
+
+      if(whereClause['assessment_tracking_id']){
+        if(!isUUID(whereClause['assessment_tracking_id'])){
+          return response
+          .status(HttpStatus.BAD_REQUEST)
+          .send(
+            APIResponse.error(
+              apiId,
+              'Please entire valid UUID.',
+              JSON.stringify('Please entire valid UUID.'),
+              'BAD_REQUEST',
+            ),
+          );
+        }
+      }
+
+      
       let orderOption = {};
       if(orderBy && order){
         orderOption[orderBy] = order.toUpperCase();;
@@ -98,6 +169,19 @@ export class TrackingAssesmentService {
         skip: offset,
         take: limit,
       })
+
+      if(result.length == 0){
+        return response
+        .status(HttpStatus.BAD_REQUEST)
+        .send(
+          APIResponse.error(
+            apiId,
+            'No data found.',
+            JSON.stringify('No data found.'),
+            'BAD_REQUEST',
+          ),
+        );
+      }
 
       return response
       .status(HttpStatus.OK)
