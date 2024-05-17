@@ -1,4 +1,4 @@
-import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AssessmentTracking } from "src/modules/tracking_assesment/entities/tracking-assessment-entity";
 import { Repository } from "typeorm";
@@ -7,20 +7,27 @@ import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
 import { SearchAssessmentTrackingDto } from "./dto/traking-assessment-search-dto";
 import { isUUID } from 'class-validator';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class TrackingAssesmentService {
-
+  private ttl;
   constructor(
     @InjectRepository(AssessmentTracking)
     private assessmentTrackingRepository: Repository<AssessmentTracking>,
-  ) { }
+    private configService: ConfigService,
+    @Inject(CACHE_MANAGER) private cacheService: Cache,
+  ) { 
+    this.ttl = this.configService.get('TTL');
+  }
 
   public async getAssessmentTrackingDetails(
-    request:any, assessmentId:string,response: Response
+    request:any, assessmentTrackingId:string,response: Response
   ) {
-    const apiId = 'api.get.assessment';
-    if(!isUUID(assessmentId)){
+    const apiId = 'api.get.assessmentTrackingId';
+    if(!isUUID(assessmentTrackingId)){
       return response
       .status(HttpStatus.BAD_REQUEST)
       .send(
@@ -33,12 +40,18 @@ export class TrackingAssesmentService {
       );
     }
     try{
+      const ttl = this.ttl;
+      const cachedData: any = await this.cacheService.get(assessmentTrackingId);
+      if (cachedData) {
+        return response
+      .status(HttpStatus.OK)
+      .send(APIResponse.success(apiId, cachedData, "Assessment data fetch successfully."));
+      }
       const result = await this.assessmentTrackingRepository.findOne({
         where: {
-          assessmentTrackingId:assessmentId
+          assessmentTrackingId:assessmentTrackingId
         }
       })
-
       if(!result){
         return response
         .status(HttpStatus.BAD_REQUEST)
@@ -51,7 +64,7 @@ export class TrackingAssesmentService {
           ),
         );
       }
-      
+      await this.cacheService.set(assessmentTrackingId, result, ttl);
       return response
       .status(HttpStatus.OK)
       .send(APIResponse.success(apiId, result, '200', "Assessment data fetch successfully."));
