@@ -15,7 +15,7 @@ export class TrackingAssesmentService {
     private assessmentTrackingRepository: Repository<AssessmentTracking>,
   ) { }
 
-  public async getAssessmentDetails(
+  public async getAssessmentTrackingDetails(
     request:any, assessmentId:string,response: Response
   ) {
     const apiId = 'api.get.assessment';
@@ -41,7 +41,7 @@ export class TrackingAssesmentService {
     }
   }
 
-  public async createAssessment(
+  public async createAssessmentTracking(
     request: any, createAssessmentTrackingDto: CreateAssessmentTrackingDto, response: Response
   ): Promise<Response> {
     const apiId = 'api.create.assessment';
@@ -55,14 +55,14 @@ export class TrackingAssesmentService {
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
         .send(APIResponse.error(
           apiId,
-          'Something went wrong in assessment creation',
+          'Failed to fetch assessment data.',
           JSON.stringify(e),
           'INTERNAL_SERVER_ERROR',
         ))
     }
   }
 
-  public async searchAssessment(
+  public async searchAssessmentRecords(
     request: any,
     searchAssessmentTrackingDto: SearchAssessmentTrackingDto,
     response: Response
@@ -108,7 +108,7 @@ export class TrackingAssesmentService {
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
         .send(APIResponse.error(
           apiId,
-          'Something went wrong in assessment creation',
+          'Failed to fetch assessment data.',
           JSON.stringify(e),
           'INTERNAL_SERVER_ERROR',
         ))

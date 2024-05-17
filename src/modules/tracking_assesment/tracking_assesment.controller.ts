@@ -36,12 +36,12 @@ export class TrackingAssesmentController {
   @ApiInternalServerErrorResponse({ description: "Internal Server Error." })
   @ApiBadRequestResponse({ description: "Bad Request" })
   @SerializeOptions({ strategy: "excludeAll", })
-  public async getAssessmentDetails(
+  public async getAssessmentTrackingDetails(
     @Param("assessmentId") assessmentId: string,
     @Req() request: Request,
     @Res() response: Response
   ) {
-    return this.trackingAssesmentService.getAssessmentDetails(request, assessmentId, response);
+    return this.trackingAssesmentService.getAssessmentTrackingDetails(request, assessmentId, response);
   }
 
   //Create Assessment 
@@ -51,12 +51,12 @@ export class TrackingAssesmentController {
   @ApiForbiddenResponse({ description: "Assessment Already Exists" })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error" })
   @ApiConflictResponse({ description: "Duplicate data." })
-  async createAssessment(
+  async createAssessmentTracking(
     @Req() request: Request,
     @Body() createAssessmentTrackingDto: CreateAssessmentTrackingDto,
     @Res() response: Response
   ) {
-    return this.trackingAssesmentService.createAssessment(request, createAssessmentTrackingDto, response);
+    return this.trackingAssesmentService.createAssessmentTracking(request, createAssessmentTrackingDto, response);
   }
 
 
@@ -67,11 +67,11 @@ export class TrackingAssesmentController {
   @ApiForbiddenResponse({ description: "Assessment Already Exists" })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error" })
   @ApiConflictResponse({ description: "Duplicate data." })
-  async searchAssessment(
+  async searchAssessmentRecords(
     @Req() request: Request,
     @Body() searchAssessmentTrackingDto: SearchAssessmentTrackingDto,
     @Res() response: Response
   ) {
-    return this.trackingAssesmentService.searchAssessment(request, searchAssessmentTrackingDto, response);
+    return this.trackingAssesmentService.searchAssessmentRecords(request, searchAssessmentTrackingDto, response);
   }
 }
