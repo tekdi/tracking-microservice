@@ -12,7 +12,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateAssessmentTrackingDto {
     @Expose()
-    assessment_tracking_id: string;
+    assessmentTrackingId: string;
 
     @ApiProperty({
         type: () => String,
@@ -21,7 +21,7 @@ export class CreateAssessmentTrackingDto {
     @Expose()
     @IsUUID(undefined, { message: 'User Id must be a valid UUID' })
     @IsNotEmpty()
-    user_id: string;
+    userId: string;
 
     @ApiPropertyOptional({
         type: () => String,
@@ -29,7 +29,7 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
-    course_id: string;
+    courseId: string;
 
     @ApiPropertyOptional({
         type: () => String,
@@ -37,7 +37,7 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
-    batch_id: string;
+    batchId: string;
 
     @ApiPropertyOptional({
         type: () => String,
@@ -45,7 +45,7 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
-    content_id: string;
+    contentId: string;
 
     @ApiPropertyOptional({
         type: () => String,
@@ -53,28 +53,16 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
-    attempt_id: string;
+    attemptId: string;
 
     @Expose()
     @IsDateString()
-    created_on: Date;
+    createdOn: Date;
 
-    @ApiPropertyOptional({
-        type: () => String,
-        description: "Grand total values",
-    })
-    @Expose()
-    @IsString()
-    grand_total: string;
-
-    @ApiPropertyOptional({
-        type: () => Date,
-        description: "Last Attempted Date",
-    })
+    
     @Expose()
     @IsDateString()
-    @IsOptional()
-    last_attempted_on: Date;
+    lastAttemptedOn: Date;
 
     @ApiPropertyOptional({
         type: String,
@@ -84,7 +72,7 @@ export class CreateAssessmentTrackingDto {
     @Expose()
     @IsArray()
     @IsOptional()
-    assessment_summary: string[];
+    assessmentSummary: string[];
 
 
 
@@ -94,7 +82,7 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsNumber()
-    total_max_score: number;
+    totalMaxScore: number;
 
     @ApiPropertyOptional({
         type: () => Number,
@@ -102,7 +90,15 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsNumber()
-    total_score: number;
+    totalScore: number;
+
+    @ApiPropertyOptional({
+        type: () => Number,
+        description: "Time Spent",
+    })
+    @Expose()
+    @IsNumber()
+    timeSpent: number;
 
     constructor(obj?: Partial<CreateAssessmentTrackingDto>) {
         if (obj) {

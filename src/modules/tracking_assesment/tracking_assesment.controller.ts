@@ -48,7 +48,6 @@ export class TrackingAssesmentController {
   @Post()
   @ApiCreatedResponse({ description: "Assessment has been created successfully." })
   @ApiBody({ type: CreateAssessmentTrackingDto })
-  @ApiForbiddenResponse({ description: "Assessment Already Exists" })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error" })
   @ApiConflictResponse({ description: "Duplicate data." })
   async createAssessmentTracking(
@@ -64,7 +63,6 @@ export class TrackingAssesmentController {
   @Post("/list")
   @ApiOkResponse({ description: "Assessment data fetch successfully." })
   @ApiBody({ type: SearchAssessmentTrackingDto })
-  @ApiForbiddenResponse({ description: "Assessment Already Exists" })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error" })
   @ApiConflictResponse({ description: "Duplicate data." })
   async searchAssessmentRecords(

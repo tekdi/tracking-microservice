@@ -3,41 +3,44 @@ import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 @Entity()
 export class AssessmentTracking {
   @PrimaryGeneratedColumn('uuid')
-  assessment_tracking_id: string;
+  assessmentTrackingId: string;
 
   @Column('uuid')
-  user_id: string;
+  userId: string;
 
   @Column()
-  course_id: string;
+  courseId: string;
 
   @Column()
-  batch_id: string;
+  batchId: string;
 
   @Column()
-  content_id: string;
+  contentId: string;
 
   @Column()
-  attempt_id: string;
+  attemptId: string;
 
   @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
-  created_on: Date;
+  createdOn: Date;
 
-  @Column()
-  grand_total: string;
+  // @Column()
+  // grand_total: string;
 
   @Column({ type: 'timestamp with time zone', nullable: true })
-  last_attempted_on: Date;
+  lastAttemptedOn: Date;
 
   @Column('jsonb')
-  assessment_summary: Record<string, any>;
+  assessmentSummary: Record<string, any>;
 
   @Column('double precision')
-  total_max_score: number;
+  totalMaxScore: number;
 
   @Column('double precision')
-  total_score: number;
+  totalScore: number;
 
   @Column({ type: 'timestamp with time zone' })
-  updated_on: Date;
+  updatedOn: Date;
+
+  @Column('numeric')
+  timeSpent: number;
 }

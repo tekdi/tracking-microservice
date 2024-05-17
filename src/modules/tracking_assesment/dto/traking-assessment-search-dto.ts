@@ -17,7 +17,7 @@ export class setFilters {
   @Expose()
   @IsUUID(undefined, { message: 'Assessment Tracking Id must be a valid UUID' })
   @IsNotEmpty()
-  assessment_tracking_id: string;
+  assessmentTrackingId: string;
 
 
   @ApiProperty({
@@ -27,7 +27,7 @@ export class setFilters {
   @Expose()
   @IsUUID(undefined, { message: 'User Id must be a valid UUID' })
   @IsNotEmpty()
-  user_id: string;
+  userId: string;
 
   @ApiPropertyOptional({
     type: () => String,
@@ -35,7 +35,7 @@ export class setFilters {
   })
   @Expose()
   @IsString()
-  course_id: string;
+  courseId: string;
 
   @ApiPropertyOptional({
     type: () => String,
@@ -43,7 +43,7 @@ export class setFilters {
   })
   @Expose()
   @IsString()
-  batch_id: string;
+  batchId: string;
 
   @ApiPropertyOptional({
     type: () => String,
@@ -51,7 +51,7 @@ export class setFilters {
   })
   @Expose()
   @IsString()
-  content_id: string;
+  contentId: string;
 }
 
 export class paginationDto {

@@ -35,7 +35,7 @@ export class TrackingAssesmentService {
     try{
       const result = await this.assessmentTrackingRepository.findOne({
         where: {
-          assessment_tracking_id:assessmentId
+          assessmentTrackingId:assessmentId
         }
       })
 
@@ -72,7 +72,7 @@ export class TrackingAssesmentService {
   ): Promise<Response> {
     const apiId = 'api.create.assessment';
     try {
-      if(!isUUID(createAssessmentTrackingDto.user_id)){
+      if(!isUUID(createAssessmentTrackingDto.userId)){
         return response
         .status(HttpStatus.BAD_REQUEST)
         .send(
@@ -88,7 +88,7 @@ export class TrackingAssesmentService {
       const result = await this.assessmentTrackingRepository.save(createAssessmentTrackingDto)
       return response
         .status(HttpStatus.CREATED)
-        .send(APIResponse.success(apiId, { assessment_ID: result.assessment_tracking_id }, 'Assessment submitted successfully.'));
+        .send(APIResponse.success(apiId, { assessmentTrackingId: result.assessmentTrackingId }, 'Assessment submitted successfully.'));
     } catch (e) {
       return response
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -120,6 +120,8 @@ export class TrackingAssesmentService {
         offset = (limit) * (page - 1);
       }
 
+
+      
       const whereClause = {};
       if (filters && Object.keys(filters).length > 0) {
         Object.entries(filters).forEach(([key, value]) => {
