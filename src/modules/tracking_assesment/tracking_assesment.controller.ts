@@ -30,18 +30,18 @@ export class TrackingAssesmentController {
   constructor(private readonly trackingAssesmentService: TrackingAssesmentService) { }
 
   //Get Assessment by Id
-  @Get("/:assessmentId")
+  @Get("/:assessmentTrackingId")
   @ApiOkResponse({ description: "Assessment detais Fetched Succcessfully" })
   @ApiNotFoundResponse({ description: "Assessment Not Found" })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error." })
   @ApiBadRequestResponse({ description: "Bad Request" })
   @SerializeOptions({ strategy: "excludeAll", })
   public async getAssessmentTrackingDetails(
-    @Param("assessmentId") assessmentId: string,
+    @Param("assessmentTrackingId") assessmentTrackingId: string,
     @Req() request: Request,
     @Res() response: Response
   ) {
-    return this.trackingAssesmentService.getAssessmentTrackingDetails(request, assessmentId, response);
+    return this.trackingAssesmentService.getAssessmentTrackingDetails(request, assessmentTrackingId, response);
   }
 
   //Create Assessment 
