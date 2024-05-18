@@ -1,6 +1,6 @@
 import { BadRequestException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { AssessmentTracking } from "src/modules/tracking_assesment/entities/tracking-assessment-entity";
+import { AssessmentTracking } from "./entities/tracking-assessment-entity";
 import { Repository } from "typeorm";
 import { CreateAssessmentTrackingDto } from "./dto/traking-assessment-create-dto";
 import { Response } from 'express';
@@ -45,7 +45,7 @@ export class TrackingAssesmentService {
       if (cachedData) {
         return response
       .status(HttpStatus.OK)
-      .send(APIResponse.success(apiId, cachedData, "Assessment data fetch successfully."));
+      .send(APIResponse.success(apiId, cachedData, "200", "Assessment data fetch successfully."));
       }
       const result = await this.assessmentTrackingRepository.findOne({
         where: {
@@ -85,6 +85,23 @@ export class TrackingAssesmentService {
   ): Promise<Response> {
     const apiId = 'api.create.assessment';
     try {
+
+      const errors = await this.validateCreateDTO(apiId, response, createAssessmentTrackingDto);
+
+      if(errors.length > 0){
+
+        return response
+        .status(HttpStatus.BAD_REQUEST)
+        .send(
+          APIResponse.error(
+            apiId,
+            `Invalid Key ${errors.join(", ")}`,
+            JSON.stringify('Invalid Key.'),
+            '400',
+          ),
+        );
+      }
+      
       if(!isUUID(createAssessmentTrackingDto.userId)){
         return response
         .status(HttpStatus.BAD_REQUEST)
@@ -214,6 +231,19 @@ export class TrackingAssesmentService {
 
 
   }
+
+  public async validateCreateDTO(apiId: any, response: Response, dto: any) {
+    const allowedKeys = [
+        'assessmentTrackingId', 'userId', 'courseId', 'batchId', 'contentId',
+        'attemptId', 'createdOn', 'lastAttemptedOn', 'assessmentSummary',
+        'totalMaxScore', 'totalScore', 'timeSpent'
+    ];
+    
+    const inputKeys = Object.keys(dto);
+    const invalidKeys = inputKeys.filter(key => !allowedKeys.includes(key));
+
+    return invalidKeys;
+}
 
 }
 

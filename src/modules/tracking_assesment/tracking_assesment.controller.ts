@@ -7,7 +7,8 @@ import {
   SerializeOptions, 
   Headers, 
   Post, 
-  Body } from '@nestjs/common';
+  Body, 
+  UsePipes} from '@nestjs/common';
 import { Response } from "express";
 import { 
   ApiBadRequestResponse, 
@@ -44,6 +45,7 @@ export class TrackingAssesmentController {
     return this.trackingAssesmentService.getAssessmentTrackingDetails(request, assessmentTrackingId, response);
   }
 
+
   //Create Assessment 
   @Post()
   @ApiCreatedResponse({ description: "Assessment has been created successfully." })
@@ -55,6 +57,8 @@ export class TrackingAssesmentController {
     @Body() createAssessmentTrackingDto: CreateAssessmentTrackingDto,
     @Res() response: Response
   ) {
+    console.log(request);
+    
     return this.trackingAssesmentService.createAssessmentTracking(request, createAssessmentTrackingDto, response);
   }
 
