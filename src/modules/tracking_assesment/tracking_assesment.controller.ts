@@ -6,7 +6,9 @@ import {
   Res, 
   SerializeOptions, 
   Post, 
-  Body} from '@nestjs/common';
+  Body,
+  UsePipes,
+  ValidationPipe} from '@nestjs/common';
 import { Response } from "express";
 import { 
   ApiBadRequestResponse, 
@@ -60,11 +62,11 @@ export class TrackingAssesmentController {
 
 
   //Search Assessment 
-  @Post("/list")
-  @ApiOkResponse({ description: "Assessment data fetch successfully." })
+  @Post('/list')
+  @ApiOkResponse({ description: 'Assessment data fetch successfully.' })
   @ApiBody({ type: SearchAssessmentTrackingDto })
-  @ApiInternalServerErrorResponse({ description: "Internal Server Error" })
-  @ApiConflictResponse({ description: "Duplicate data." })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error' })
+  @ApiConflictResponse({ description: 'Duplicate data.' })
   async searchAssessmentRecords(
     @Req() request: Request,
     @Body() searchAssessmentTrackingDto: SearchAssessmentTrackingDto,

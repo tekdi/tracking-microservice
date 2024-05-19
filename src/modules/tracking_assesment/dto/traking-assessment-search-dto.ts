@@ -5,27 +5,30 @@ import {
   IsNumber,
   IsUUID,
   IsObject,
+  IsOptional,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class setFilters {
   
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: () => String,
     description: "Assessment Tracking Id",
   })
   @Expose()
   @IsUUID(undefined, { message: 'Assessment Tracking Id must be a valid UUID' })
+  @IsOptional()
   @IsNotEmpty()
   assessmentTrackingId: string;
 
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: () => String,
     description: "User Id",
   })
   @Expose()
   @IsUUID(undefined, { message: 'User Id must be a valid UUID' })
+  @IsOptional()
   @IsNotEmpty()
   userId: string;
 
@@ -35,6 +38,8 @@ export class setFilters {
   })
   @Expose()
   @IsString()
+  @IsOptional()
+  @IsNotEmpty()
   courseId: string;
 
   @ApiPropertyOptional({
@@ -43,6 +48,8 @@ export class setFilters {
   })
   @Expose()
   @IsString()
+  @IsOptional()
+  @IsNotEmpty()
   batchId: string;
 
   @ApiPropertyOptional({
@@ -51,6 +58,8 @@ export class setFilters {
   })
   @Expose()
   @IsString()
+  @IsOptional()
+  @IsNotEmpty()
   contentId: string;
 }
 
@@ -59,14 +68,20 @@ export class paginationDto {
     type: Number,
     description: "Page Size",
   })
+  @Expose()
   @IsNumber()
+  @IsOptional()
+  @IsNotEmpty()
   pageSize: number;
 
   @ApiProperty({
     type: Number,
     description: "Page",
   })
+  @Expose()
   @IsNumber()
+  @IsOptional()
+  @IsNotEmpty()
   page: number;
 }
 
@@ -75,8 +90,10 @@ export class sortDto {
     type: String,
     description: "Field",
   })
+  @Expose()
   @IsString()
   @IsNotEmpty()
+  @IsOptional()
   field: string;
 
 
@@ -84,8 +101,10 @@ export class sortDto {
     type: String,
     description: "Order",
   })
+  @Expose()
   @IsString()
   @IsNotEmpty()
+  @IsOptional()
   order: string;
 }
 
@@ -102,6 +121,7 @@ export class SearchAssessmentTrackingDto {
     type: paginationDto,
     description: "Pagination",
   })
+  @IsOptional()
   @IsObject()
   pagination: paginationDto;
 
@@ -109,6 +129,7 @@ export class SearchAssessmentTrackingDto {
     type: sortDto,
     description: "Ordering",
   })
+  @IsOptional()
   @IsObject()
   sort: sortDto;
 

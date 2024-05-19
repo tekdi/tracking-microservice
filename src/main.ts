@@ -1,13 +1,26 @@
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api/v1');
+
+  // Enable the global validation pipe
+  app.useGlobalPipes(new ValidationPipe({
+    exceptionFactory: (errors) => {
+      // Custom exception factory to handle validation errors
+      const messages = errors.map(
+        error => `${error.property} - ${Object.values(error.constraints).join(', ')}`
+      );
+      return new BadRequestException(messages);
+    },
+  }));
+
   const options = new DocumentBuilder()
-    .setTitle('Tracking Assesment API Collection')
-    .setDescription('APIs of Trackking Assesment.')
+    .setTitle('Tracking Assessment API Collection')
+    .setDescription('APIs of Tracking Assessment.')
     .setVersion('1.0')
     .addApiKey(
       { type: 'apiKey', name: 'Authorization', in: 'header' },
@@ -23,4 +36,3 @@ async function bootstrap() {
   });
 }
 bootstrap();
-
