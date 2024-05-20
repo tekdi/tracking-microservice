@@ -33,7 +33,7 @@ export class TrackingAssessmentController {
 
   //Get Assessment by Id
   @Get("/:assessmentTrackingId")
-  @ApiOkResponse({ description: "Assessment detais Fetched Succcessfully" })
+  @ApiOkResponse({ description: "Assessment details fetched successfully" })
   @ApiNotFoundResponse({ description: "Assessment Not Found" })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error." })
   @ApiBadRequestResponse({ description: "Bad Request" })
