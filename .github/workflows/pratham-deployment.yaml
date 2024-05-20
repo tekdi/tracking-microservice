@@ -1,7 +1,8 @@
 name: Tracking-Management-Service Deployment on Pratham-dev in OU
 
 on:
-  push:
+  pull_request_target:
+    types: [closed]
     branches:
       - main
 
