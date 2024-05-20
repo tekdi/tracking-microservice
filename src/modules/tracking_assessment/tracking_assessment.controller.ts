@@ -22,14 +22,14 @@ import {
   ApiOkResponse,
   ApiTags
 } from '@nestjs/swagger';
-import { CreateAssessmentTrackingDto } from "./dto/traking-assessment-create-dto";
-import { SearchAssessmentTrackingDto } from "./dto/traking-assessment-search-dto";
-import { TrackingAssesmentService } from "./tracking_assesment.service";
+import { CreateAssessmentTrackingDto } from "./dto/tracking-assessment-create-dto";
+import { SearchAssessmentTrackingDto } from "./dto/tracking-assessment-search-dto";
+import { TrackingAssessmentService } from "./tracking_assessment.service";
 
-@Controller('tracking-assesment')
+@Controller('tracking-assessment')
 @ApiTags("tracking")
-export class TrackingAssesmentController {
-  constructor(private readonly trackingAssesmentService: TrackingAssesmentService) { }
+export class TrackingAssessmentController {
+  constructor(private readonly trackingAssessmentService: TrackingAssessmentService) { }
 
   //Get Assessment by Id
   @Get("/:assessmentTrackingId")
@@ -42,7 +42,7 @@ export class TrackingAssesmentController {
     @Req() request: Request,
     @Res() response: Response
   ) {
-    return this.trackingAssesmentService.getAssessmentTrackingDetails(request, assessmentTrackingId, response);
+    return this.trackingAssessmentService.getAssessmentTrackingDetails(request, assessmentTrackingId, response);
   }
 
   //Create Assessment 
@@ -57,7 +57,7 @@ export class TrackingAssesmentController {
     @Body() createAssessmentTrackingDto: CreateAssessmentTrackingDto,
     @Res() response: Response
   ) {
-    return this.trackingAssesmentService.createAssessmentTracking(request, createAssessmentTrackingDto, response);
+    return this.trackingAssessmentService.createAssessmentTracking(request, createAssessmentTrackingDto, response);
   }
 
 
@@ -72,7 +72,7 @@ export class TrackingAssesmentController {
     @Body() searchAssessmentTrackingDto: SearchAssessmentTrackingDto,
     @Res() response: Response
   ) {
-    return this.trackingAssesmentService.searchAssessmentRecords(request, searchAssessmentTrackingDto, response);
+    return this.trackingAssessmentService.searchAssessmentRecords(request, searchAssessmentTrackingDto, response);
   }
 
 
@@ -87,6 +87,6 @@ export class TrackingAssesmentController {
     @Req() request: Request,
     @Res() response: Response
   ) {
-    return this.trackingAssesmentService.deleteAssessmentTracking(request, assessmentTrackingId, response);
+    return this.trackingAssessmentService.deleteAssessmentTracking(request, assessmentTrackingId, response);
   }
 }

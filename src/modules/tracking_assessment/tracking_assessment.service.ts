@@ -1,18 +1,18 @@
 import { BadRequestException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { AssessmentTracking } from "src/modules/tracking_assesment/entities/tracking-assessment-entity";
+import { AssessmentTracking } from "src/modules/tracking_assessment/entities/tracking-assessment-entity";
 import { Repository } from "typeorm";
-import { CreateAssessmentTrackingDto } from "./dto/traking-assessment-create-dto";
+import { CreateAssessmentTrackingDto } from "./dto/tracking-assessment-create-dto";
 import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
-import { SearchAssessmentTrackingDto } from "./dto/traking-assessment-search-dto";
+import { SearchAssessmentTrackingDto } from "./dto/tracking-assessment-search-dto";
 import { IsUUID, isUUID } from 'class-validator';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class TrackingAssesmentService {
+export class TrackingAssessmentService {
   private ttl;
   constructor(
     @InjectRepository(AssessmentTracking)
