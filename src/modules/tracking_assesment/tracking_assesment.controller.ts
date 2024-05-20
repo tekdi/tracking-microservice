@@ -1,24 +1,27 @@
-import { 
-  Controller, 
-  Get, 
-  Param, 
-  Req, 
-  Res, 
-  SerializeOptions, 
-  Post, 
-  Body} from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Req,
+  Res,
+  SerializeOptions,
+  Post,
+  Body,
+  Delete
+} from '@nestjs/common';
 import { Response } from "express";
-import { 
-  ApiBadRequestResponse, 
-  ApiBody, 
-  ApiConflictResponse, 
-  ApiCreatedResponse, 
-  ApiForbiddenResponse, 
-  ApiHeader, 
-  ApiInternalServerErrorResponse, 
-  ApiNotFoundResponse, 
-  ApiOkResponse, 
-  ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBody,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiHeader,
+  ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiTags
+} from '@nestjs/swagger';
 import { CreateAssessmentTrackingDto } from "./dto/traking-assessment-create-dto";
 import { SearchAssessmentTrackingDto } from "./dto/traking-assessment-search-dto";
 import { TrackingAssesmentService } from "./tracking_assesment.service";
@@ -34,7 +37,6 @@ export class TrackingAssesmentController {
   @ApiNotFoundResponse({ description: "Assessment Not Found" })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error." })
   @ApiBadRequestResponse({ description: "Bad Request" })
-  @SerializeOptions({ strategy: "excludeAll", })
   public async getAssessmentTrackingDetails(
     @Param("assessmentTrackingId") assessmentTrackingId: string,
     @Req() request: Request,
@@ -49,6 +51,7 @@ export class TrackingAssesmentController {
   @ApiBody({ type: CreateAssessmentTrackingDto })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error" })
   @ApiConflictResponse({ description: "Duplicate data." })
+  @ApiBadRequestResponse({ description: "Bad Request" })
   async createAssessmentTracking(
     @Req() request: Request,
     @Body() createAssessmentTrackingDto: CreateAssessmentTrackingDto,
@@ -63,12 +66,27 @@ export class TrackingAssesmentController {
   @ApiOkResponse({ description: "Assessment data fetch successfully." })
   @ApiBody({ type: SearchAssessmentTrackingDto })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error" })
-  @ApiConflictResponse({ description: "Duplicate data." })
+  @ApiBadRequestResponse({ description: "Bad Request" })
   async searchAssessmentRecords(
     @Req() request: Request,
     @Body() searchAssessmentTrackingDto: SearchAssessmentTrackingDto,
     @Res() response: Response
   ) {
     return this.trackingAssesmentService.searchAssessmentRecords(request, searchAssessmentTrackingDto, response);
+  }
+
+
+  //Search Assessment 
+  @Delete("/:assessmentTrackingId")
+  @ApiOkResponse({ description: "Assessment tracking deleted successfully." })
+  @ApiInternalServerErrorResponse({ description: "Internal Server Error." })
+  @ApiBadRequestResponse({ description: "Bad Request." })
+  @ApiNotFoundResponse({ description: "Assessment Not Found." })
+  async deleteAssessmentTracking(
+    @Param("assessmentTrackingId") assessmentTrackingId: string,
+    @Req() request: Request,
+    @Res() response: Response
+  ) {
+    return this.trackingAssesmentService.deleteAssessmentTracking(request, assessmentTrackingId, response);
   }
 }

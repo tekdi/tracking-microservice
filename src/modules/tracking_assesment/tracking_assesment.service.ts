@@ -6,7 +6,7 @@ import { CreateAssessmentTrackingDto } from "./dto/traking-assessment-create-dto
 import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
 import { SearchAssessmentTrackingDto } from "./dto/traking-assessment-search-dto";
-import { isUUID } from 'class-validator';
+import { IsUUID, isUUID } from 'class-validator';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
@@ -356,6 +356,52 @@ export class TrackingAssesmentService {
       }
     });
     return invalidKeys;
+  }
+
+  public async deleteAssessmentTracking(request: any, assessmentTrackingId: string, response: Response){
+    const apiId = 'api.delete.assessment';
+    try {
+      
+      if (!isUUID(assessmentTrackingId)) {
+        return response
+          .status(HttpStatus.BAD_REQUEST)
+          .send(APIResponse.error(apiId,'Please entire valid UUID.',JSON.stringify('Please entire valid UUID.'),'400'),
+          );
+      }
+      const getAssessmentData = await this.assessmentTrackingRepository.findOne({
+        where: {
+          assessmentTrackingId: assessmentTrackingId
+        }
+      })
+
+      if(!getAssessmentData){
+        return response
+        .status(HttpStatus.NOT_FOUND)
+        .send(
+          APIResponse.error(apiId,'Tracking Id not found.',JSON.stringify('Tracking Id not found.'),'404'),
+        );
+      }
+
+      const deleteAssessment = await this.assessmentTrackingRepository.delete({
+        assessmentTrackingId:assessmentTrackingId
+      })
+      if(deleteAssessment['affected']>0){
+        return response
+        .status(HttpStatus.OK)
+        .send(APIResponse.success(apiId, assessmentTrackingId,'200', "Assessment tracking deleted successfully."));
+      }
+      // console.log("hii",deleteAssessment['affected']);
+
+    } catch (e) {
+      return response
+      .status(HttpStatus.INTERNAL_SERVER_ERROR)
+      .send(APIResponse.error(
+        apiId,
+        'Failed to fetch assessment data.',
+        JSON.stringify(e),
+        'INTERNAL_SERVER_ERROR',
+      ))
+    }
   }
 
 }
