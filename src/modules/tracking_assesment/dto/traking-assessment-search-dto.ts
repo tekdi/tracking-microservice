@@ -6,9 +6,31 @@ import {
   IsUUID,
   IsObject,
   IsOptional,
+  ValidationOptions,
+  registerDecorator,
+  ValidationArguments,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
+// Custom decorator to check if the object is not empty
+function IsNotEmptyObject(validationOptions?: ValidationOptions) {
+  return function (object: Object, propertyName: string) {
+    registerDecorator({
+      name: 'isNotEmptyObject',
+      target: object.constructor,
+      propertyName: propertyName,
+      options: validationOptions,
+      validator: {
+        validate(value: any, args: ValidationArguments) {
+          return value && Object.keys(value).length > 0;
+        },
+        defaultMessage(args: ValidationArguments) {
+          return `${args.property} should not be an empty object`;
+        },
+      },
+    });
+  };
+}
 export class setFilters {
   
   @ApiPropertyOptional({
@@ -115,6 +137,7 @@ export class SearchAssessmentTrackingDto {
     description: "Filters",
   })
   @IsObject()
+  @IsNotEmptyObject({ message: 'Filters should not be an empty object' })
   filters: setFilters;
 
   @ApiProperty({
