@@ -5,9 +5,8 @@ import {
   Req, 
   Res, 
   SerializeOptions, 
-  Headers, 
   Post, 
-  Body } from '@nestjs/common';
+  Body} from '@nestjs/common';
 import { Response } from "express";
 import { 
   ApiBadRequestResponse, 

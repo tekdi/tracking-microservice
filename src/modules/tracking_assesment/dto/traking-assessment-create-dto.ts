@@ -14,6 +14,13 @@ export class CreateAssessmentTrackingDto {
     @Expose()
     assessmentTrackingId: string;
 
+    @Expose()
+    createdOn: Date;
+
+    @Expose()
+    lastAttemptedOn: Date;
+
+
     @ApiProperty({
         type: () => String,
         description: "User Id",
@@ -29,6 +36,8 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
+    @IsOptional()
+    @IsNotEmpty()
     courseId: string;
 
     @ApiPropertyOptional({
@@ -37,6 +46,8 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
+    @IsOptional()
+    @IsNotEmpty()
     batchId: string;
 
     @ApiPropertyOptional({
@@ -45,6 +56,8 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
+    @IsOptional()
+    @IsNotEmpty()
     contentId: string;
 
     @ApiPropertyOptional({
@@ -53,16 +66,11 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
+    @IsOptional()
+    @IsNotEmpty()
     attemptId: string;
 
-    @Expose()
-    @IsDateString()
-    createdOn: Date;
 
-    
-    @Expose()
-    @IsDateString()
-    lastAttemptedOn: Date;
 
     @ApiPropertyOptional({
         type: String,
@@ -72,6 +80,7 @@ export class CreateAssessmentTrackingDto {
     @Expose()
     @IsArray()
     @IsOptional()
+    @IsNotEmpty()
     assessmentSummary: string[];
 
 
@@ -82,6 +91,8 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsNumber()
+    @IsOptional()
+    @IsNotEmpty()
     totalMaxScore: number;
 
     @ApiPropertyOptional({
@@ -90,6 +101,8 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsNumber()
+    @IsOptional()
+    @IsNotEmpty()
     totalScore: number;
 
     @ApiPropertyOptional({
@@ -98,6 +111,8 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsNumber()
+    @IsOptional()
+    @IsNotEmpty()
     timeSpent: number;
 
     constructor(obj?: Partial<CreateAssessmentTrackingDto>) {

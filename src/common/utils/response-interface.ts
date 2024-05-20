@@ -6,6 +6,9 @@ export interface ServerResponse {
   // response param
   params: Params;
 
+  //success message
+  successMessage?: any;
+
   // response code
   responseCode: string;
 
