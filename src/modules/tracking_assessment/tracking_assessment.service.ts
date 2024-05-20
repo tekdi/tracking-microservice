@@ -212,7 +212,6 @@ export class TrackingAssessmentService {
 
         if (limit == 0 || page == 0) {
           limit = 20;
-          offset = 1;
         } else {
           offset = (limit) * (page - 1);
         }
