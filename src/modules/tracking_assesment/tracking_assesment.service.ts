@@ -390,7 +390,6 @@ export class TrackingAssesmentService {
         .status(HttpStatus.OK)
         .send(APIResponse.success(apiId, assessmentTrackingId,'200', "Assessment tracking deleted successfully."));
       }
-      // console.log("hii",deleteAssessment['affected']);
 
     } catch (e) {
       return response
