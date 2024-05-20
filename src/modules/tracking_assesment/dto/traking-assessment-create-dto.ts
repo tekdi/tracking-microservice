@@ -17,10 +17,6 @@ export class CreateAssessmentTrackingDto {
     @Expose()
     createdOn: Date;
 
-    @Expose()
-    lastAttemptedOn: Date;
-
-
     @ApiProperty({
         type: () => String,
         description: "User Id",
@@ -36,7 +32,6 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
-    @IsOptional()
     @IsNotEmpty()
     courseId: string;
 
@@ -46,7 +41,6 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
-    @IsOptional()
     @IsNotEmpty()
     batchId: string;
 
@@ -56,7 +50,6 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
-    @IsOptional()
     @IsNotEmpty()
     contentId: string;
 
@@ -66,7 +59,6 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsString()
-    @IsOptional()
     @IsNotEmpty()
     attemptId: string;
 
@@ -79,7 +71,6 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsArray()
-    @IsOptional()
     @IsNotEmpty()
     assessmentSummary: string[];
 
@@ -91,7 +82,6 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsNumber()
-    @IsOptional()
     @IsNotEmpty()
     totalMaxScore: number;
 
@@ -101,9 +91,18 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsNumber()
-    @IsOptional()
     @IsNotEmpty()
     totalScore: number;
+
+    @ApiPropertyOptional({
+        type: () => Date,
+        description: "Last Attempted On",
+    })
+    @Expose()
+    @IsString()
+    @IsNotEmpty()
+    lastAttemptedOn: Date;
+
 
     @ApiPropertyOptional({
         type: () => Number,
@@ -111,7 +110,6 @@ export class CreateAssessmentTrackingDto {
     })
     @Expose()
     @IsNumber()
-    @IsOptional()
     @IsNotEmpty()
     timeSpent: number;
 
