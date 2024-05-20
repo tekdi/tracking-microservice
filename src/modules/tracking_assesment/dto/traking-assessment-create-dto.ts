@@ -96,7 +96,7 @@ export class CreateAssessmentTrackingDto {
 
     @ApiPropertyOptional({
         type: () => Date,
-        description: "Total score values",
+        description: "Last Attempted On",
     })
     @Expose()
     @IsString()
