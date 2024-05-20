@@ -76,7 +76,7 @@ export class TrackingAssesmentController {
   }
 
 
-  //Search Assessment 
+  //Delete Assessment 
   @Delete("/:assessmentTrackingId")
   @ApiOkResponse({ description: "Assessment tracking deleted successfully." })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error." })
