@@ -180,31 +180,15 @@ export class TrackingAssessmentService {
         }
 
         Object.entries(filters).forEach(([key, value]) => {
-          // if (value === '') {
-          //   return response
-          //     .status(HttpStatus.BAD_REQUEST)
-          //     .send(
-          //       APIResponse.error(
-          //         apiId,
-          //         `Blank value for key '${key}'. Please provide a valid value.`,
-          //         JSON.stringify('Blank value.'),
-          //         '400',
-          //       ),
-          //     );
-          // }
-
           if (value === '') {
             emptyValueKeys[key] = value;
             emptyKeysString += (emptyKeysString ? ', ' : '') + key;
           } else {
             whereClause[key] = value;
           }
-
         });
-
       }
     
-
       if (pagination && Object.keys(pagination).length > 0) {
         const invalidKey = await this.invalidKeyCheck(pagination, paginationKeys)
         if (invalidKey.length > 0) {
