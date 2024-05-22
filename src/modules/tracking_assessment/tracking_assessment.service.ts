@@ -54,13 +54,13 @@ export class TrackingAssessmentService {
       })
       if (!result) {
         return response
-          .status(HttpStatus.BAD_REQUEST)
+          .status(HttpStatus.NOT_FOUND)
           .send(
             APIResponse.error(
               apiId,
               'No data found.',
               JSON.stringify('No data found.'),
-              'BAD_REQUEST',
+              'NOT_FOUND',
             ),
           );
       }
@@ -150,7 +150,7 @@ export class TrackingAssessmentService {
       const orderField = [
         'assessmentTrackingId', 'userId', 'courseId', 'batchId', 'contentId',
         'attemptId', 'createdOn', 'lastAttemptedOn', 'assessmentSummary',
-        'totalMaxScore', 'totalScore', 'timeSpent', 'updatedOn'
+        'totalMaxScore', 'totalScore', 'updatedOn'
       ];
 
       const { pagination, sort, filters } = searchAssessmentTrackingDto;
@@ -161,6 +161,8 @@ export class TrackingAssessmentService {
       let offset = 0;
       let orderOption = {};
       const whereClause = {};
+      const emptyValueKeys = {};
+      let emptyKeysString = '';
 
       if (filters && Object.keys(filters).length > 0) {
         const invalidKey = await this.invalidKeyCheck(filters, filterKeys)
@@ -178,22 +180,30 @@ export class TrackingAssessmentService {
         }
 
         Object.entries(filters).forEach(([key, value]) => {
+          // if (value === '') {
+          //   return response
+          //     .status(HttpStatus.BAD_REQUEST)
+          //     .send(
+          //       APIResponse.error(
+          //         apiId,
+          //         `Blank value for key '${key}'. Please provide a valid value.`,
+          //         JSON.stringify('Blank value.'),
+          //         '400',
+          //       ),
+          //     );
+          // }
+
           if (value === '') {
-            return response
-              .status(HttpStatus.BAD_REQUEST)
-              .send(
-                APIResponse.error(
-                  apiId,
-                  `Blank value for key '${key}'. Please provide a valid value.`,
-                  JSON.stringify('Blank value.'),
-                  '400',
-                ),
-              );
+            emptyValueKeys[key] = value;
+            emptyKeysString += (emptyKeysString ? ', ' : '') + key;
+          } else {
+            whereClause[key] = value;
           }
-          whereClause[key] = value;
+
         });
 
       }
+    
 
       if (pagination && Object.keys(pagination).length > 0) {
         const invalidKey = await this.invalidKeyCheck(pagination, paginationKeys)
@@ -209,13 +219,14 @@ export class TrackingAssessmentService {
               ),
             );
         }
-
-        if (limit == 0 || page == 0) {
-          limit = 20;
-        } else {
+        if (limit > 0 && page > 0) {
           offset = (limit) * (page - 1);
+        } else{
+          limit = 200;
         }
+
       }
+      
 
       if (sort && Object.keys(sort).length > 0) {
         const invalidKey = await this.invalidKeyCheck(sort, sortKeys)
@@ -243,6 +254,7 @@ export class TrackingAssessmentService {
               ),
             );
           }
+
           if (orderBy && order) {
             if (!orderValue.includes(order)) {
               return response
@@ -304,30 +316,35 @@ export class TrackingAssessmentService {
             );
         }
       }
-
-      const result = await this.assessmentTrackingRepository.find({
+      let errObj={}
+      const [result, total] = await this.assessmentTrackingRepository.findAndCount({
         where: whereClause,
         order: orderOption,
         skip: offset,
         take: limit,
       })
-
       if (result.length == 0) {
         return response
-          .status(HttpStatus.BAD_REQUEST)
+          .status(HttpStatus.NOT_FOUND)
           .send(
             APIResponse.error(
               apiId,
               'No data found.',
               JSON.stringify('No data found.'),
-              'BAD_REQUEST',
+              'NOT_FOUND',
             ),
           );
       }
-
+      result['totalCount'] = total;
+      if(emptyKeysString){
+        errObj['error'] = "Blank Field";
+        errObj['errorMessage'] = `The following fields are blank: ${emptyKeysString}. Data has been processed based on the provided non-empty fields.`;
+      }
+      
+      
       return response
         .status(HttpStatus.OK)
-        .send(APIResponse.success(apiId, result, '200', "Assessment data fetch successfully."));
+        .send(APIResponse.success(apiId, {count:total,result,errObj}, '200', "Assessment data fetch successfully."));
 
     } catch (e) {
       return response

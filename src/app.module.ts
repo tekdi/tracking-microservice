@@ -9,7 +9,6 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { TrackingAssessmentModule } from "src/modules/tracking_assessment/tracking_assessment.module";
 
 @Module({
-  
   imports: [
     TrackingAssessmentModule,
     ConfigModule.forRoot({ isGlobal: true }),

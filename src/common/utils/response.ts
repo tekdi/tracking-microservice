@@ -16,6 +16,8 @@ export default class APIResponse {
         errmsg: null,
       };
 
+      // console.log(result);
+      
       const resObj: ServerResponse = {
         id,
         ver: '1.0',
@@ -23,8 +25,8 @@ export default class APIResponse {
         params,
         responseCode: statusCode,
         successMessage: successMessage,
-        result,
-      };
+        result:result,
+      };      
       return resObj;
     } catch (e) {
       return e;

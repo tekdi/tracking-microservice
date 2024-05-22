@@ -1,0 +1,104 @@
+{
+	"info": {
+		"_postman_id": "0102d6d2-e381-4d1b-9ee9-c80d5fe1a92e",
+		"name": "Assessment",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "25805755"
+	},
+	"item": [
+		{
+			"name": "Create Assessment",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "*/*"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"userId\": \"30b2571f-08f9-49ce-b97a-c643df0c82f7\",\n  \"courseId\": \"\",\n  \"batchId\": \"01295501508689100844\",\n  \"contentId\": \"do_2129493126207324161154\",\n  \"attemptId\": \"638a8d6240f8df4b8cc5ef9b79fa0d67\",\n  \"assessmentSummary\": [        {\n          \"data\": [\n            {\n              \"item\": {\n                \"id\": \"do_1140003657753231361638\",\n                \"type\": \"mcq\",\n                \"title\": \"Baseline Assessment\",\n                \"params\": [\n                  {\n                    \"value\": {\n                      \"body\": \"96\",\n                      \"value\": 0\n                    },\n                    \"answer\": false\n                  },\n                  {\n                    \"value\": {\n                      \"body\": \"93\",\n                      \"value\": 1\n                    },\n                    \"answer\": true\n                  },\n                  {\n                    \"value\": {\n                      \"body\": \"91\",\n                      \"value\": 2\n                    },\n                    \"answer\": false\n                  },\n                  {\n                    \"value\": {\n                      \"body\": \"90\",\n                      \"value\": 3\n                    },\n                    \"answer\": false\n                  }\n                ],\n                \"maxscore\": 1,\n                \"sectionId\": \"do_1140003637694791681636\"\n              },\n              \"pass\": \"Yes\",\n              \"index\": 1,\n              \"score\": 1,\n              \"duration\": 10,\n              \"resvalues\": [\n                {\n                  \"label\": \"93\",\n                  \"value\": 1,\n                  \"selected\": true\n                }\n              ],\n              \"sectionName\": \"Level 1\"\n            },\n            {\n              \"item\": {\n                \"id\": \"do_1140003665100718081640\",\n                \"type\": \"mcq\",\n                \"title\": \"Baseline Assessment\",\n                \"params\": [\n                  {\n                    \"value\": {\n                      \"body\": \"37 rupees\",\n                      \"value\": 0\n                    },\n                    \"answer\": false\n                  },\n                  {\n                    \"value\": {\n                      \"body\": \"42 rupees\",\n                      \"value\": 1\n                    },\n                    \"answer\": true\n                  },\n                  {\n                    \"value\": {\n                      \"body\": \"32 rupees\",\n                      \"value\": 2\n                    },\n                    \"answer\": false\n                  },\n                  {\n                    \"value\": {\n                      \"body\": \"22 rupees\",\n                      \"value\": 3\n                    },\n                    \"answer\": false\n                  }\n                ],\n                \"maxscore\": 1,\n                \"sectionId\": \"do_1140003637694791681636\"\n              },\n              \"pass\": \"Yes\",\n              \"index\": 2,\n              \"score\": 1,\n              \"duration\": 35,\n              \"resvalues\": [\n                {\n                  \"label\": \"42 rupees\",\n                  \"value\": 1,\n                  \"selected\": true\n                }\n              ],\n              \"sectionName\": \"Level 1\"\n            }\n          ],\n          \"sectionId\": \"do_1140003637694791681636\",\n          \"sectionName\": \"Level 1\"\n        }],\n  \"totalMaxScore\": 8,\n  \"totalScore\": 1,\n  \"timeSpent\": 0\n}"
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/v1/tracking-assesment",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"v1",
+						"tracking-assesment"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Search Assessment",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "*/*"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"filters\": {\n    \"courseId\": \"do_21295500947955712011099\"\n\n  },\n  \"pagination\": {\n    \"page\": 0,\n    \"pageSize\": 1\n  },\n  \"sort\": {\n    \"field\": \"updatedOn\",\n    \"order\": \"asc\"\n  }\n}"
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/v1/tracking-assessment/list",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"v1",
+						"tracking-assessment",
+						"list"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Assessment",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://3.109.46.84:5000/api/v1/tracking-assesment/36273d77-5217-489c-a523-78b6cfd03045",
+					"protocol": "http",
+					"host": [
+						"3",
+						"109",
+						"46",
+						"84"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"v1",
+						"tracking-assesment",
+						"36273d77-5217-489c-a523-78b6cfd03045"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
