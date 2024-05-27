@@ -7,7 +7,8 @@ import {
   SerializeOptions,
   Post,
   Body,
-  Delete
+  Delete,
+  UseInterceptors
 } from '@nestjs/common';
 import { Response } from "express";
 import {
@@ -25,6 +26,7 @@ import {
 import { CreateAssessmentTrackingDto } from "./dto/tracking-assessment-create-dto";
 import { SearchAssessmentTrackingDto } from "./dto/tracking-assessment-search-dto";
 import { TrackingAssessmentService } from "./tracking_assessment.service";
+import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @Controller('tracking-assessment')
 @ApiTags("tracking")
@@ -37,6 +39,7 @@ export class TrackingAssessmentController {
   @ApiNotFoundResponse({ description: "Assessment Not Found" })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error." })
   @ApiBadRequestResponse({ description: "Bad Request" })
+  @UseInterceptors(CacheInterceptor)
   public async getAssessmentTrackingDetails(
     @Param("assessmentTrackingId") assessmentTrackingId: string,
     @Req() request: Request,
