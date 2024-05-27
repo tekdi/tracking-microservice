@@ -16,8 +16,6 @@ export default class APIResponse {
         err: null,
         errmsg: null,
       };
-
-      // console.log(result);
       
       const resObj: ServerResponse = {
         id,
