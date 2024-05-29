@@ -1,42 +1,45 @@
 import { v4 } from 'uuid';
-import { ServerResponse, Params } from './response-interface';
+import { Params } from './response-interface';
+import { Response } from 'express';
 
 export default class APIResponse {
   public static success<Type>(
+    response:Response,
     id: string,
     result: Type,
-    statusCode: string,
-    successMessage:string,
-  ): ServerResponse {
+    statusCode: number,
+    successmessage:string
+  ) {
     try {
       const params: Params = {
         resmsgid: v4(),
         status: 'successful',
         err: null,
         errmsg: null,
+        successmessage: successmessage
       };
 
-      const resObj: ServerResponse = {
+      const resObj= {
         id,
         ver: '1.0',
         ts: new Date().toISOString(),
         params,
         responseCode: statusCode,
-        successMessage: successMessage,
         result,
       };
-      return resObj;
+      return response.status(statusCode).json(resObj);
     } catch (e) {
       return e;
     }
   }
 
   public static error(
+    response: Response,
     id: string,
     errmsg: string,
     error: string,
-    statusCode: string,
-  ): ServerResponse {
+    statusCode: number,
+  ) {
     try {
       const params: Params = {
         resmsgid: v4(),
@@ -45,15 +48,15 @@ export default class APIResponse {
         errmsg: errmsg,
       };
 
-      const resObj: ServerResponse = {
+      const resObj = {
         id,
         ver: '1.0',
         ts: new Date().toISOString(),
         params,
         responseCode: statusCode,
-        result: { success: false },
+        result: { },
       };
-      return resObj;
+      return response.status(statusCode).json(resObj);
     } catch (e) {
       return e;
     }
