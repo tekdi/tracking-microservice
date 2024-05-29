@@ -44,6 +44,7 @@ export default class APIResponse {
       const params: Params = {
         resmsgid: v4(),
         status: 'failed',
+        successmsg:null,
         err: error,
         errmsg: errmsg,
       };

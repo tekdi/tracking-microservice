@@ -1,18 +1,18 @@
 import { BadRequestException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { AssessmentTracking } from "src/modules/tracking_assesment/entities/tracking-assessment-entity";
+import { AssessmentTracking } from "src/modules/tracking_assessment/entities/tracking-assessment-entity";
 import { Repository } from "typeorm";
-import { CreateAssessmentTrackingDto } from "./dto/traking-assessment-create-dto";
+import { CreateAssessmentTrackingDto } from "./dto/tracking-assessment-create-dto";
 import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
-import { SearchAssessmentTrackingDto } from "./dto/traking-assessment-search-dto";
-import { isUUID } from 'class-validator';
+import { SearchAssessmentTrackingDto } from "./dto/tracking-assessment-search-dto";
+import { IsUUID, isUUID } from 'class-validator';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class TrackingAssesmentService {
+export class TrackingAssessmentService {
   private ttl;
   constructor(
     @InjectRepository(AssessmentTracking)
@@ -103,7 +103,7 @@ export class TrackingAssesmentService {
       const orderField = [
         'assessmentTrackingId', 'userId', 'courseId', 'batchId', 'contentId',
         'attemptId', 'createdOn', 'lastAttemptedOn', 'assessmentSummary',
-        'totalMaxScore', 'totalScore', 'timeSpent', 'updatedOn'
+        'totalMaxScore', 'totalScore', 'updatedOn'
       ];
 
       const { pagination, sort, filters } = searchAssessmentTrackingDto;
@@ -114,6 +114,8 @@ export class TrackingAssesmentService {
       let offset = 0;
       let orderOption = {};
       const whereClause = {};
+      const emptyValueKeys = {};
+      let emptyKeysString = '';
 
       if (filters && Object.keys(filters).length > 0) {
         const invalidKey = await this.invalidKeyCheck(filters, filterKeys)
@@ -125,24 +127,22 @@ export class TrackingAssesmentService {
           if (value === '') {
             return APIResponse.error(response,apiId, `Blank value for key '${key}'. Please provide a valid value.`,'Blank value.',HttpStatus.BAD_REQUEST);
           }
-          whereClause[key] = value;
         });
-
       }
-
+    
       if (pagination && Object.keys(pagination).length > 0) {
         const invalidKey = await this.invalidKeyCheck(pagination, paginationKeys)
         if (invalidKey.length > 0) {
           return APIResponse.error(response,apiId,  `Invalid key: ${invalidKey}`,'Invalid Key',HttpStatus.BAD_REQUEST);
         }
-
-        if (limit == 0 || page == 0) {
-          limit = 20;
-          offset = 1;
-        } else {
+        if (limit > 0 && page > 0) {
           offset = (limit) * (page - 1);
+        } else{
+          limit = 200;
         }
+
       }
+      
 
       if (sort && Object.keys(sort).length > 0) {
         const invalidKey = await this.invalidKeyCheck(sort, sortKeys)
@@ -152,6 +152,7 @@ export class TrackingAssesmentService {
           if(orderBy==='' || order===''){
             return APIResponse.error(response,apiId,  `Blank value for order or field. Please provide a valid value.`,'Blank value.',HttpStatus.BAD_REQUEST);
           }
+
           if (orderBy && order) {
             if (!orderValue.includes(order)) {
               return APIResponse.error(response,apiId, `Invalid sort order ${order}. Please use either 'asc' or 'desc'.`,'Invalid Sort Order.',HttpStatus.BAD_REQUEST); 
@@ -177,14 +178,13 @@ export class TrackingAssesmentService {
           return APIResponse.error(response,apiId,  'Invalid Assessment Tracking ID format. It must be a valid UUID.','Please enter a valid UUID.',HttpStatus.BAD_REQUEST);
         }
       }
-
-      const result = await this.assessmentTrackingRepository.find({
+      let errObj={}
+      const [result, total] = await this.assessmentTrackingRepository.findAndCount({
         where: whereClause,
         order: orderOption,
         skip: offset,
         take: limit,
       })
-
       if (result.length == 0) {
         return APIResponse.error(response,apiId,   'No data found.', 'BAD_REQUEST',HttpStatus.BAD_REQUEST);
       }
@@ -210,6 +210,51 @@ export class TrackingAssesmentService {
       }
     });
     return invalidKeys;
+  }
+
+  public async deleteAssessmentTracking(request: any, assessmentTrackingId: string, response: Response){
+    const apiId = 'api.delete.assessment';
+    try {
+      
+      if (!isUUID(assessmentTrackingId)) {
+        return response
+          .status(HttpStatus.BAD_REQUEST)
+          .send(APIResponse.error(apiId,'Please entire valid UUID.',JSON.stringify('Please entire valid UUID.'),'400'),
+          );
+      }
+      const getAssessmentData = await this.assessmentTrackingRepository.findOne({
+        where: {
+          assessmentTrackingId: assessmentTrackingId
+        }
+      })
+
+      if(!getAssessmentData){
+        return response
+        .status(HttpStatus.NOT_FOUND)
+        .send(
+          APIResponse.error(apiId,'Tracking Id not found.',JSON.stringify('Tracking Id not found.'),'404'),
+        );
+      }
+
+      const deleteAssessment = await this.assessmentTrackingRepository.delete({
+        assessmentTrackingId:assessmentTrackingId
+      })
+      if(deleteAssessment['affected']>0){
+        return response
+        .status(HttpStatus.OK)
+        .send(APIResponse.success(apiId, assessmentTrackingId,'200', "Assessment tracking deleted successfully."));
+      }
+
+    } catch (e) {
+      return response
+      .status(HttpStatus.INTERNAL_SERVER_ERROR)
+      .send(APIResponse.error(
+        apiId,
+        'Failed to fetch assessment data.',
+        JSON.stringify(e),
+        'INTERNAL_SERVER_ERROR',
+      ))
+    }
   }
 
 }
