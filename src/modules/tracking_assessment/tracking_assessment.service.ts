@@ -217,10 +217,7 @@ export class TrackingAssessmentService {
     try {
       
       if (!isUUID(assessmentTrackingId)) {
-        return response
-          .status(HttpStatus.BAD_REQUEST)
-          .send(APIResponse.error(apiId,'Please entire valid UUID.',JSON.stringify('Please entire valid UUID.'),'400'),
-          );
+        return APIResponse.error(response,apiId,'Please entire valid UUID.','Please entire valid UUID.',HttpStatus.BAD_REQUEST);
       }
       const getAssessmentData = await this.assessmentTrackingRepository.findOne({
         where: {
@@ -229,31 +226,19 @@ export class TrackingAssessmentService {
       })
 
       if(!getAssessmentData){
-        return response
-        .status(HttpStatus.NOT_FOUND)
-        .send(
-          APIResponse.error(apiId,'Tracking Id not found.',JSON.stringify('Tracking Id not found.'),'404'),
-        );
+        return APIResponse.error(response,apiId,'Tracking Id not found.','Tracking Id not found.',HttpStatus.NOT_FOUND);
       }
 
       const deleteAssessment = await this.assessmentTrackingRepository.delete({
         assessmentTrackingId:assessmentTrackingId
       })
       if(deleteAssessment['affected']>0){
-        return response
-        .status(HttpStatus.OK)
-        .send(APIResponse.success(apiId, assessmentTrackingId,'200', "Assessment tracking deleted successfully."));
+        return APIResponse.success(response,apiId,{data:`${assessmentTrackingId} is Deleted`},HttpStatus.OK,"Assessment data fetch successfully.")
       }
 
     } catch (e) {
-      return response
-      .status(HttpStatus.INTERNAL_SERVER_ERROR)
-      .send(APIResponse.error(
-        apiId,
-        'Failed to fetch assessment data.',
-        JSON.stringify(e),
-        'INTERNAL_SERVER_ERROR',
-      ))
+      const errorMessage = e.message || "Internal Server Error";
+      return APIResponse.error(response,apiId,'Failed to fetch assessment data.','INTERNAL_SERVER_ERROR',HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 

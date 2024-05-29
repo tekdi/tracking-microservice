@@ -18,7 +18,6 @@ export default class APIResponse {
         errmsg: null,
         successmessage: successmessage
       };
-
       const resObj= {
         id,
         ver: '1.0',
@@ -44,7 +43,6 @@ export default class APIResponse {
       const params: Params = {
         resmsgid: v4(),
         status: 'failed',
-        successmsg:null,
         err: error,
         errmsg: errmsg,
       };
