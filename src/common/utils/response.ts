@@ -12,10 +12,11 @@ export default class APIResponse {
       const params: Params = {
         resmsgid: v4(),
         status: 'successful',
+        successmsg:successMessage,
         err: null,
         errmsg: null,
       };
-
+      
       const resObj: ServerResponse = {
         id,
         ver: '1.0',
@@ -23,8 +24,8 @@ export default class APIResponse {
         params,
         responseCode: statusCode,
         successMessage: successMessage,
-        result,
-      };
+        result:result,
+      };      
       return resObj;
     } catch (e) {
       return e;
@@ -41,6 +42,7 @@ export default class APIResponse {
       const params: Params = {
         resmsgid: v4(),
         status: 'failed',
+        successmsg:null,
         err: error,
         errmsg: errmsg,
       };

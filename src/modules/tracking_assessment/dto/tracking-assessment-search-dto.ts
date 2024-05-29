@@ -6,6 +6,9 @@ import {
   IsUUID,
   IsObject,
   IsOptional,
+  ValidationOptions,
+  registerDecorator,
+  ValidationArguments,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
@@ -114,6 +117,7 @@ export class SearchAssessmentTrackingDto {
     type: setFilters,
     description: "Filters",
   })
+  @IsOptional()
   @IsObject()
   filters: setFilters;
 
