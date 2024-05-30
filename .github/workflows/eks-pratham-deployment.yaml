@@ -79,6 +79,9 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}        
         IMAGE_TAG: ${{ steps.commit.outputs.short }}
       run: |
-        
-        kubectl apply -f manifest/tracking-service.yaml
-        kubectl apply -f manifest/tracking-service.yaml
+         envsubst < manifest/tracking-service.yaml \
+         '${{ secrets.ECR_REPOSITORY }}:${{ secrets.IMAGE_TAG }}' \
+         '${{ secrets.ECR_IMAGE }}' \
+         > manifest/tracking-service-updated.yaml
+         kubectl apply -f manifest/tracking-service-updated.yaml
+         
