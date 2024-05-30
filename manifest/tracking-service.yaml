@@ -47,8 +47,8 @@ metadata:
   name: trackingmanagement
 spec:
   ports:
-  - name: "${{ secret.TRACKING_PORT }}"
-    port: ${{ secret.TRACKING_PORT }}
+  - name: "5000"
+    port: 5000
     targetPort: 3000
   selector:
     io.kompose.service: trackingmanagement
