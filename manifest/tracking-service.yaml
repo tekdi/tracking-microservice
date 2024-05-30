@@ -47,7 +47,7 @@ metadata:
 spec:
   type: NodePort
   ports:
-  - port: ${{ secrets.TRACKING_PORT }}
+  - port: 31268
     targetPort: 3000
     nodePort: 31268
   selector:
