@@ -77,12 +77,12 @@ jobs:
     - name: Deploy to EKS
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ steps.commit.outputs.short }}
+        IMAGE_TAG: ${{ secrets.IMAGE_TAG }}
         ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         ECR_IMAGE: ${{ secrets.ECR_IMAGE }}
       run: |
         export ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}
-        export IMAGE_TAG=${{ steps.commit.outputs.short }}
+        export IMAGE_TAG=${{ secrets.IMAGE_TAG }}
         export ECR_IMAGE=${{ secrets.ECR_IMAGE }}
         envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
         cat manifest/tracking-service-updated.yaml 
