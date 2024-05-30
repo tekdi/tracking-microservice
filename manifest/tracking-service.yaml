@@ -24,7 +24,7 @@ spec:
         io.kompose.service: trackingmanagement
     spec:
       containers:
-      - image: 533266995169.dkr.ecr.ap-south-1.amazonaws.com/tracking-service:latest
+      - image: ${{ secrets.ECR_REPOSITORY }}:${{ secrets.IMAGE_TAG }}
         imagePullPolicy: "Always"
         name: tracking-service
         ports:
