@@ -39,22 +39,22 @@ jobs:
 
     - name: Copy .env file
       env:
-      ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
+       ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
       run: echo "$ENV_FILE_CONTENT" > .env
 
     - name: Show PWD and list content
-        run: |
-          echo "Current Working Directory: pwd"
-          pwd
-          ls -ltra
+      run: |
+           echo "Current Working Directory: pwd"
+           pwd
+           ls -ltra
           
     - name: Creating Dockerfile 
       env:
-      DOCKERFILE_FILE_CONTENT: ${{ secrets.DOCKERFILE_FILE_CONTENT }}
+       DOCKERFILE_FILE_CONTENT: ${{ secrets.DOCKERFILE_FILE_CONTENT }}
       run: echo "$DOCKERFILE_FILE_CONTENT" > Dockerfile
 
     - name: Show PWD and list content
-        run: |
+      run: |
           echo "Current Working Directory: pwd"
           pwd
           ls -ltra 
