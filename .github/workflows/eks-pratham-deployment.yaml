@@ -1,9 +1,12 @@
 name: Deploy to EKS-Pratham
 on:
-  pull_request_target:
-    types: [closed]
+  push:
     branches:
       - main
+#  pull_request_target:
+ #   types: [closed]
+  #  branches:
+   #   - main
 
 env:
   ECR_REPOSITORY: flask-app
