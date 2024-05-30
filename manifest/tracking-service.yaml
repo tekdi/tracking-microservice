@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: /snap/kompose/19/kompose-linux-amd64 convert -f tracking.yaml
+    kompose.version: 1.21.0 (992df58d8)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: trackingmanagement
+  name: trackingmanagement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: trackingmanagement
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: /snap/kompose/19/kompose-linux-amd64 convert -f tracking.yaml
+        kompose.version: 1.21.0 (992df58d8)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: trackingmanagement
+    spec:
+      containers:
+      - image: ${{ secrets.ECR_REPOSITORY }}:${{ secrets.IMAGE_TAG }}
+        imagePullPolicy: "Always"
+        name: tracking-service
+        ports:
+        - containerPort: 3000
+        resources: {}
+      restartPolicy: Always
+      serviceAccountName: ""
+      volumes: null
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: /snap/kompose/19/kompose-linux-amd64 convert -f tracking.yaml
+    kompose.version: 1.21.0 (992df58d8)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: trackingmanagement
+  name: trackingmanagement
+spec:
+  ports:
+  - name: "${{ secret.TRACKING_PORT }}"
+    port: ${{ secret.TRACKING_PORT }}
+    targetPort: 3000
+  selector:
+    io.kompose.service: trackingmanagement
+status:
+  loadBalancer: {}
