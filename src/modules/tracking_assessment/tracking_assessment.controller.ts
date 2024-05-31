@@ -28,13 +28,13 @@ import { SearchAssessmentTrackingDto } from "./dto/tracking-assessment-search-dt
 import { TrackingAssessmentService } from "./tracking_assessment.service";
 import { CacheInterceptor } from '@nestjs/cache-manager';
 
-@Controller('tracking-assessment')
+@Controller()
 @ApiTags("tracking")
 export class TrackingAssessmentController {
   constructor(private readonly trackingAssessmentService: TrackingAssessmentService) { }
 
   //Get Assessment by Id
-  @Get("/:assessmentTrackingId")
+  @Get("read/:assessmentTrackingId")
   @ApiOkResponse({ description: "Assessment details fetched successfully" })
   @ApiNotFoundResponse({ description: "Assessment Not Found" })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error." })
@@ -49,7 +49,7 @@ export class TrackingAssessmentController {
   }
 
   //Create Assessment 
-  @Post()
+  @Post('create')
   @ApiCreatedResponse({ description: "Assessment has been created successfully." })
   @ApiBody({ type: CreateAssessmentTrackingDto })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error" })
@@ -80,7 +80,7 @@ export class TrackingAssessmentController {
 
 
   //Delete Assessment 
-  @Delete("/:assessmentTrackingId")
+  @Delete("delete/:assessmentTrackingId")
   @ApiOkResponse({ description: "Assessment tracking deleted successfully." })
   @ApiInternalServerErrorResponse({ description: "Internal Server Error." })
   @ApiBadRequestResponse({ description: "Bad Request." })
