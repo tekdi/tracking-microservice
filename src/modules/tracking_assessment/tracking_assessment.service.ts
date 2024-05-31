@@ -188,7 +188,7 @@ export class TrackingAssessmentService {
       if (result.length == 0) {
         return APIResponse.error(response,apiId,   'No data found.', 'BAD_REQUEST',HttpStatus.BAD_REQUEST);
       }
-      return APIResponse.success(response,apiId,result,HttpStatus.OK,"Assessment data fetch successfully.")
+      return APIResponse.success(response,apiId,result,HttpStatus.OK,"Assessment data fetched successfully.")
 
     } catch (e) {
       const errorMessage = e.message || "Internal Server Error";
