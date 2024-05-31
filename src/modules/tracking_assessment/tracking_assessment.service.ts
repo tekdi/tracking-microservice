@@ -28,41 +28,41 @@ export class TrackingAssessmentService {
   ) {
     const apiId = 'api.get.assessmentTrackingId';
     if (!isUUID(assessmentTrackingId)) {
-      return APIResponse.error(response,apiId,"Please Enter Valid UUID","BAD_REQUEST",HttpStatus.BAD_REQUEST);
+      return APIResponse.error(response, apiId, "Please Enter Valid UUID", "BAD_REQUEST", HttpStatus.BAD_REQUEST);
     }
     try {
       const ttl = this.ttl;
       const cachedData: any = await this.cacheService.get(assessmentTrackingId);
       if (cachedData) {
-          return APIResponse.success(response,apiId,cachedData,HttpStatus.OK,"Assessment data fetch successfully.");
+        return APIResponse.success(response, apiId, cachedData, HttpStatus.OK, "Assessment data fetch successfully.");
       }
       const result = await this.findAssessment(assessmentTrackingId)
       if (!result) {
-        return APIResponse.error(response,apiId,"No data found.","BAD_REQUEST",HttpStatus.BAD_REQUEST);
+        return APIResponse.error(response, apiId, "No data found.", "NOT_FOUND", HttpStatus.NOT_FOUND);
       }
       await this.cacheService.set(assessmentTrackingId, result, ttl);
-      return APIResponse.success(response,apiId,result,HttpStatus.OK,"Assessment data fetch successfully.");
+      return APIResponse.success(response, apiId, result, HttpStatus.OK, "Assessment data fetch successfully.");
     } catch (e) {
       const errorMessage = e.message || "Internal Server Error";
-      return APIResponse.error(response,apiId,"Something went wrong in assessment creation",errorMessage,HttpStatus.INTERNAL_SERVER_ERROR);
+      return APIResponse.error(response, apiId, "Something went wrong in assessment creation", errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
 
-  public async findAssessment(assessmentTrackingId){
+  public async findAssessment(assessmentTrackingId) {
     const result = await this.assessmentTrackingRepository.findOne({
       where: {
         assessmentTrackingId: assessmentTrackingId
       }
     })
-    if(result){
+    if (result) {
       return result
     }
     return false;
   }
   public async createAssessmentTracking(
     request: any, createAssessmentTrackingDto: CreateAssessmentTrackingDto, response: Response
-  ){
+  ) {
     const apiId = 'api.create.assessment';
     try {
       const allowedKeys = [
@@ -73,18 +73,18 @@ export class TrackingAssessmentService {
       const errors = await this.validateCreateDTO(allowedKeys, createAssessmentTrackingDto);
 
       if (errors.length > 0) {
-        return APIResponse.error(response,apiId,`Invalid Key ${errors.join(", ")}`, JSON.stringify('Invalid Key.'),HttpStatus.BAD_REQUEST);
+        return APIResponse.error(response, apiId, `Invalid Key ${errors.join(", ")}`, JSON.stringify('Invalid Key.'), HttpStatus.BAD_REQUEST);
       }
 
       if (!isUUID(createAssessmentTrackingDto.userId)) {
-        return APIResponse.error(response,apiId,'Please entire valid UUID.', JSON.stringify('Please entire valid UUID.'),HttpStatus.BAD_REQUEST);
+        return APIResponse.error(response, apiId, 'Please entire valid UUID.', JSON.stringify('Please entire valid UUID.'), HttpStatus.BAD_REQUEST);
       }
 
       const result = await this.assessmentTrackingRepository.save(createAssessmentTrackingDto)
-      return APIResponse.success(response,apiId,{ assessmentTrackingId: result.assessmentTrackingId },HttpStatus.CREATED,"Assessment submitted successfully.");
+      return APIResponse.success(response, apiId, { assessmentTrackingId: result.assessmentTrackingId }, HttpStatus.CREATED, "Assessment submitted successfully.");
     } catch (e) {
       const errorMessage = e.message || "Internal Server Error";
-      return APIResponse.error(response,apiId, 'Failed to fetch assessment data.',errorMessage,HttpStatus.BAD_REQUEST);
+      return APIResponse.error(response, apiId, 'Failed to fetch assessment data.', errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -102,7 +102,7 @@ export class TrackingAssessmentService {
       const orderValue = ["asc", "desc"];
       const orderField = [
         'assessmentTrackingId', 'userId', 'courseId', 'batchId', 'contentId',
-        'attemptId', 'createdOn', 'lastAttemptedOn', 'assessmentSummary',
+        'attemptId', 'createdOn', 'lastAttemptedOn',
         'totalMaxScore', 'totalScore', 'updatedOn'
       ];
 
@@ -120,65 +120,64 @@ export class TrackingAssessmentService {
       if (filters && Object.keys(filters).length > 0) {
         const invalidKey = await this.invalidKeyCheck(filters, filterKeys)
         if (invalidKey.length > 0) {
-          return APIResponse.error(response,apiId,`Invalid key: ${invalidKey}`,'Invalid Key.',HttpStatus.BAD_REQUEST);
+          return APIResponse.error(response, apiId, `Invalid key: ${invalidKey}`, 'Invalid Key.', HttpStatus.BAD_REQUEST);
         }
 
         Object.entries(filters).forEach(([key, value]) => {
           if (value === '') {
-            return APIResponse.error(response,apiId, `Blank value for key '${key}'. Please provide a valid value.`,'Blank value.',HttpStatus.BAD_REQUEST);
+            return APIResponse.error(response, apiId, `Blank value for key '${key}'. Please provide a valid value.`, 'Blank value.', HttpStatus.BAD_REQUEST);
           }
+          whereClause[key] = value;
         });
       }
-    
+
       if (pagination && Object.keys(pagination).length > 0) {
         const invalidKey = await this.invalidKeyCheck(pagination, paginationKeys)
         if (invalidKey.length > 0) {
-          return APIResponse.error(response,apiId,  `Invalid key: ${invalidKey}`,'Invalid Key',HttpStatus.BAD_REQUEST);
+          return APIResponse.error(response, apiId, `Invalid key: ${invalidKey}`, 'Invalid Key', HttpStatus.BAD_REQUEST);
         }
         if (limit > 0 && page > 0) {
           offset = (limit) * (page - 1);
-        } else{
+        } else {
           limit = 200;
         }
 
       }
-      
+
 
       if (sort && Object.keys(sort).length > 0) {
         const invalidKey = await this.invalidKeyCheck(sort, sortKeys)
         if (invalidKey.length > 0) {
-          return APIResponse.error(response,apiId,  `Invalid key: ${invalidKey}`,'Invalid Key',HttpStatus.BAD_REQUEST);
+          return APIResponse.error(response, apiId, `Invalid key: ${invalidKey}`, 'Invalid Key', HttpStatus.BAD_REQUEST);
         } else {
-          if(orderBy==='' || order===''){
-            return APIResponse.error(response,apiId,  `Blank value for order or field. Please provide a valid value.`,'Blank value.',HttpStatus.BAD_REQUEST);
+          if (orderBy === '' || order === '') {
+            return APIResponse.error(response, apiId, `Blank value for order or field. Please provide a valid value.`, 'Blank value.', HttpStatus.BAD_REQUEST);
           }
 
           if (orderBy && order) {
             if (!orderValue.includes(order)) {
-              return APIResponse.error(response,apiId, `Invalid sort order ${order}. Please use either 'asc' or 'desc'.`,'Invalid Sort Order.',HttpStatus.BAD_REQUEST); 
+              return APIResponse.error(response, apiId, `Invalid sort order ${order}. Please use either 'asc' or 'desc'.`, 'Invalid Sort Order.', HttpStatus.BAD_REQUEST);
             }
 
             if (!orderField.includes(orderBy)) {
-              return APIResponse.error(response,apiId,  `Invalid sort field "${orderBy}". Please use a valid sorting field.`,'Invalid Sort field.',HttpStatus.BAD_REQUEST); 
+              return APIResponse.error(response, apiId, `Invalid sort field "${orderBy}". Please use a valid sorting field.`, 'Invalid Sort field.', HttpStatus.BAD_REQUEST);
             }
             orderOption[orderBy] = order.toUpperCase();
           }
         }
       }
 
-      if (whereClause['userId']) {
-
-        if (!isUUID(whereClause['userId'])) {
-          return APIResponse.error(response,apiId, 'Invalid User ID format. It must be a valid UUID.','Please enter a valid UUID.',HttpStatus.BAD_REQUEST);
-        }
+      if (whereClause['userId'] && !isUUID(whereClause['userId'])) {
+        return APIResponse.error(response, apiId, 'Invalid User ID format. It must be a valid UUID.', 'Please enter a valid UUID.', HttpStatus.BAD_REQUEST);
       }
 
-      if (whereClause['assessmentTrackingId']) {
-        if (!isUUID(whereClause['assessmentTrackingId'])) {
-          return APIResponse.error(response,apiId,  'Invalid Assessment Tracking ID format. It must be a valid UUID.','Please enter a valid UUID.',HttpStatus.BAD_REQUEST);
-        }
+      if (whereClause['assessmentTrackingId'] && !isUUID(whereClause['assessmentTrackingId'])) {
+        return APIResponse.error(response, apiId, 'Invalid Assessment Tracking ID format. It must be a valid UUID.', 'Please enter a valid UUID.', HttpStatus.BAD_REQUEST);
       }
-      let errObj={}
+
+
+
+
       const [result, total] = await this.assessmentTrackingRepository.findAndCount({
         where: whereClause,
         order: orderOption,
@@ -186,13 +185,13 @@ export class TrackingAssessmentService {
         take: limit,
       })
       if (result.length == 0) {
-        return APIResponse.error(response,apiId,   'No data found.', 'BAD_REQUEST',HttpStatus.BAD_REQUEST);
+        return APIResponse.error(response, apiId, 'No data found.', 'NOT_FOUND', HttpStatus.NOT_FOUND);
       }
-      return APIResponse.success(response,apiId,result,HttpStatus.OK,"Assessment data fetched successfully.")
+      return APIResponse.success(response, apiId, result, HttpStatus.OK, "Assessment data fetched successfully.")
 
     } catch (e) {
       const errorMessage = e.message || "Internal Server Error";
-      return APIResponse.error(response,apiId, 'Failed to fetch assessment data.',errorMessage,HttpStatus.INTERNAL_SERVER_ERROR);
+      return APIResponse.error(response, apiId, 'Failed to fetch assessment data.', errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -212,12 +211,12 @@ export class TrackingAssessmentService {
     return invalidKeys;
   }
 
-  public async deleteAssessmentTracking(request: any, assessmentTrackingId: string, response: Response){
+  public async deleteAssessmentTracking(request: any, assessmentTrackingId: string, response: Response) {
     const apiId = 'api.delete.assessment';
     try {
-      
+
       if (!isUUID(assessmentTrackingId)) {
-        return APIResponse.error(response,apiId,'Please entire valid UUID.','Please entire valid UUID.',HttpStatus.BAD_REQUEST);
+        return APIResponse.error(response, apiId, 'Please entire valid UUID.', 'Please entire valid UUID.', HttpStatus.BAD_REQUEST);
       }
       const getAssessmentData = await this.assessmentTrackingRepository.findOne({
         where: {
@@ -225,20 +224,20 @@ export class TrackingAssessmentService {
         }
       })
 
-      if(!getAssessmentData){
-        return APIResponse.error(response,apiId,'Tracking Id not found.','Tracking Id not found.',HttpStatus.NOT_FOUND);
+      if (!getAssessmentData) {
+        return APIResponse.error(response, apiId, 'Tracking Id not found.', 'Tracking Id not found.', HttpStatus.NOT_FOUND);
       }
 
       const deleteAssessment = await this.assessmentTrackingRepository.delete({
-        assessmentTrackingId:assessmentTrackingId
+        assessmentTrackingId: assessmentTrackingId
       })
-      if(deleteAssessment['affected']>0){
-        return APIResponse.success(response,apiId,{data:`${assessmentTrackingId} is Deleted`},HttpStatus.OK,"Assessment data fetch successfully.")
+      if (deleteAssessment['affected'] > 0) {
+        return APIResponse.success(response, apiId, { data: `${assessmentTrackingId} is Deleted` }, HttpStatus.OK, "Assessment data fetch successfully.")
       }
 
     } catch (e) {
       const errorMessage = e.message || "Internal Server Error";
-      return APIResponse.error(response,apiId,'Failed to fetch assessment data.','INTERNAL_SERVER_ERROR',HttpStatus.INTERNAL_SERVER_ERROR);
+      return APIResponse.error(response, apiId, 'Failed to fetch assessment data.', 'INTERNAL_SERVER_ERROR', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
