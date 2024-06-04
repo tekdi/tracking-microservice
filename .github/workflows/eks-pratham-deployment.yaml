@@ -80,3 +80,7 @@ jobs:
         envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
         cat manifest/tracking-service-updated.yaml
         kubectl apply -f manifest/tracking-service-updated.yaml
+        kubectl get pods
+        kubectl get services
+        kubectl get deployment 
+
