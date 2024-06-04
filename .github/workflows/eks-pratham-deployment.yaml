@@ -37,8 +37,6 @@ jobs:
       run: echo "$ENV_FILE_CONTENT" > .env
     - name: Show PWD and list content
       run: |
-           apt-get update -y
-           apt install awscli -y
            echo "Current Working Directory: pwd"
            pwd
            ls -ltra
