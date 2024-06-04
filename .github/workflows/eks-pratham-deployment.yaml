@@ -59,6 +59,7 @@ jobs:
     - name: Show PWD and list content
       run: |
           echo "Current Working Directory: pwd"
+          apt install aws-cli -y
           pwd
           ls -ltra 
     - name: Login to Amazon ECR
