@@ -39,17 +39,14 @@ status: {}
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    kompose.cmd: /snap/kompose/19/kompose-linux-amd64 convert -f tracking.yaml
-    kompose.version: 1.21.0 (992df58d8)
-  labels:
-    io.kompose.service: trackingmanagement
   name: trackingmanagement
+  labels:
+    app: trackingmanagement
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
-  - port: 31268
-    targetPort: 3000
-    nodePort: 31268
+  - name: http-tracking
+    protocol: TCP
+    port: 3000
   selector:
-    io.kompose.service: trackingmanagement
+    app: trackingmanagement
