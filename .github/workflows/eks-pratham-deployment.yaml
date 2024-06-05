@@ -79,12 +79,12 @@ jobs:
         export ECR_IMAGE=${{ secrets.ECR_IMAGE }}
         envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
         cat manifest/tracking-service-updated.yaml
-        kubectl apply -f manifest/tracking-service-updated.yaml
+        kubectl delete deployment trackingmanagement
+        kubectl delete service trackingmanagement
         kubectl get pods
         kubectl get services
         kubectl get deployment 
-        kubectl apply -f manifest/
-        kubectl set image deployment/trackingmanagement tracking-service=${{ secrets.ECR_REPOSITORY }}
+        kubectl apply -f manifest/tracking-service-updated.yaml
         sleep 10
         kubectl get pods
         kubectl get services
