@@ -34,7 +34,7 @@ jobs:
     - name: Copy .env file
       env:
        ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
-      run: echo "$ENV_FILE_CONTENT" > .env
+      run: echo "$ENV_FILE_CONTENT" > manifest/configmap.yaml
     - name: Show PWD and list content
       run: |
            echo "Current Working Directory: pwd"
@@ -49,6 +49,7 @@ jobs:
           echo "Current Working Directory: pwd"
           pwd
           ls -ltra
+          ls -ltra manifest/
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
@@ -82,6 +83,7 @@ jobs:
         rm -rf manifest/tracking-service.yaml
         kubectl delete deployment trackingmanagement
         kubectl delete service trackingmanagement
+        kubectl apply -f manifest/configmap.yaml
         kubectl apply -f manifest/tracking-service-updated.yaml
         sleep 10
         kubectl get pods
