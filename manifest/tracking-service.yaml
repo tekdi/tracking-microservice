@@ -30,6 +30,9 @@ spec:
         name: tracking-service
         ports:
         - containerPort: 3000
+        envFrom:
+        - configMapRef:
+            name: tracking-service-config
         resources: {}
       restartPolicy: Always
       serviceAccountName: ""
