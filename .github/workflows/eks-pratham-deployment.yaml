@@ -81,6 +81,9 @@ jobs:
         envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
         cat manifest/tracking-service-updated.yaml
         rm -rf manifest/tracking-service.yaml
+        kubectl delete deployment trackingmanagement
+        kubectl delete service trackingmanagement
+        kubectl delete cm tracking-service-config
         kubectl apply -f manifest/configmap.yaml
         kubectl apply -f manifest/tracking-service-updated.yaml
         sleep 10
