@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: tracking-service
-        image: ${ECR_REPOSITORY}:${IMAGE_TAG}
+        image: 533266995169.dkr.ecr.ap-south-1.amazonaws.com/tracking-service:latest
         imagePullPolicy: "Always"
         ports:
         - containerPort: 3000
@@ -30,7 +30,9 @@ spec:
       restartPolicy: Always
       
 status: {}
+
 ---
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -38,7 +40,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
+  - port: 3000
     protocol: TCP
-    port: 3000
   selector:
     app: trackingmanagement
+
