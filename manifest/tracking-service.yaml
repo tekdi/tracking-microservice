@@ -1,33 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    kompose.cmd: /snap/kompose/19/kompose-linux-amd64 convert -f tracking.yaml
-    kompose.version: 1.21.0 (992df58d8)
   creationTimestamp: null
   labels:
-    io.kompose.service: trackingmanagement
+    app: trackingmanagement
   name: trackingmanagement
 spec:
   replicas: 1
   selector:
     matchLabels:
-      io.kompose.service: trackingmanagement
+      app: trackingmanagement
   strategy: {}
   template:
     metadata:
-      annotations:
-        kompose.cmd: /snap/kompose/19/kompose-linux-amd64 convert -f tracking.yaml
-        kompose.version: 1.21.0 (992df58d8)
       creationTimestamp: null
       labels:
-        io.kompose.service: trackingmanagement
+        app: trackingmanagement
     spec:
       containers:
       - name: tracking-service
         image: ${ECR_REPOSITORY}:${IMAGE_TAG}
         imagePullPolicy: "Always"
-        name: tracking-service
         ports:
         - containerPort: 3000
         envFrom:
@@ -35,16 +28,13 @@ spec:
             name: tracking-service-config
         resources: {}
       restartPolicy: Always
-      serviceAccountName: ""
-      volumes: null
+      
 status: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: trackingmanagement
-  labels:
-    app: trackingmanagement
 spec:
   type: ClusterIP
   ports:
