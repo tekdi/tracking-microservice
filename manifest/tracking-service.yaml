@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: tracking-service
-        image: 533266995169.dkr.ecr.ap-south-1.amazonaws.com/tracking-service:latest
+        image: ${ECR_REPOSITORY}:${IMAGE_TAG}
         imagePullPolicy: "Always"
         ports:
         - containerPort: 3000
