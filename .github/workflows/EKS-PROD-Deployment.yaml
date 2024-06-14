@@ -23,30 +23,33 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{env.AWS_REGION}}
+        aws-region: ${{ env.AWS_REGION }}
     - name: Setup Node Env
       uses: actions/setup-node@v3
       with:
         node-version: 21.1.0
     - name: Copy .env file
       env:
-       ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_PROD }}
-      run: echo "$ENV_FILE_PROD" > manifest/configmap.yaml
+        ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_PROD }}
+      run: |
+        echo "$ENV_FILE_PROD" > manifest/configmap.yaml
+        echo "Contents of manifest/configmap.yaml:"
+        cat manifest/configmap.yaml
     - name: Show PWD and list content
       run: |
-           echo "Current Working Directory: pwd"
-           pwd
-           ls -ltra
+        echo "Current Working Directory: $(pwd)"
+        pwd
+        ls -ltra
     - name: Creating Dockerfile
       env:
-       DOCKERFILE_FILE_CONTENT: ${{ secrets.DOCKERFILE_FILE_CONTENT }}
+        DOCKERFILE_FILE_CONTENT: ${{ secrets.DOCKERFILE_FILE_CONTENT }}
       run: echo "$DOCKERFILE_FILE_CONTENT" > Dockerfile
     - name: Show PWD and list content
       run: |
-          echo "Current Working Directory: pwd"
-          pwd
-          ls -ltra
-          ls -ltra manifest/
+        echo "Current Working Directory: $(pwd)"
+        pwd
+        ls -ltra
+        ls -ltra manifest/
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
@@ -73,12 +76,9 @@ jobs:
         export IMAGE_TAG=${{ secrets.IMAGE_TAG_PROD }}
         export ECR_IMAGE=${{ secrets.ECR_IMAGE_PROD }}
         envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
+        echo "Contents of manifest/tracking-service-updated.yaml:"
         cat manifest/tracking-service-updated.yaml
         ls -ltra manifest/
         kubectl apply -f manifest/configmap.yaml
-        #kubectl get pod,svc,deployment,cm
-        #kubectl delete deployment trackingmanagement
-        #kubectl delete svc trackingmanagement
-        #kubectl apply -f manifest/tracking-service-updated.yaml
-        #kubectl get pod,deploy
-       
+        echo "kubectl apply exit code: $?"
+        kubectl get configmap
