@@ -28,11 +28,13 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: 21.1.0
-    - name: Copy .env file
-      env:
-        ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_PROD }}
+    - name: Debug ENV_FILE_PROD secret content
       run: |
-        echo "$ENV_FILE_PROD" > manifest/configmap.yaml
+        echo "Contents of ENV_FILE_PROD (redacted):"
+        echo "${{ secrets.ENV_FILE_PROD }}" | head -c 100
+    - name: Copy .env file
+      run: |
+        echo "${{ secrets.ENV_FILE_PROD }}" > manifest/configmap.yaml
         echo "Contents of manifest/configmap.yaml:"
         cat manifest/configmap.yaml
     - name: Show PWD and list content
@@ -41,9 +43,7 @@ jobs:
         pwd
         ls -ltra
     - name: Creating Dockerfile
-      env:
-        DOCKERFILE_FILE_CONTENT: ${{ secrets.DOCKERFILE_FILE_CONTENT }}
-      run: echo "$DOCKERFILE_FILE_CONTENT" > Dockerfile
+      run: echo "${{ secrets.DOCKERFILE_FILE_CONTENT }}" > Dockerfile
     - name: Show PWD and list content
       run: |
         echo "Current Working Directory: $(pwd)"
