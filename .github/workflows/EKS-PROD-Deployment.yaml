@@ -31,7 +31,7 @@ jobs:
     - name: Copy .env file
       env:
        ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_PROD }}
-      run: echo "$ENV_FILE_PROD" > manifest/configmap.yaml
+      run: echo "$ENV_FILE_PROD" >> manifest/configmap.yaml
     - name: Show PWD and list content
       run: |
            echo "Current Working Directory: pwd"
