@@ -78,9 +78,6 @@ jobs:
         kubectl get pod,svc,deployment,cm
         kubectl delete deployment trackingmanagement
         kubectl delete svc trackingmanagement
-        kubectl delete cm tracking-service-config
         kubectl apply -f manifest/tracking-service-updated.yaml
-        kubectl apply -f manifest/configmap.yaml
-        
-        kubectl get pod,svc,deployment,cm
+        kubectl get pod,deploy
        
