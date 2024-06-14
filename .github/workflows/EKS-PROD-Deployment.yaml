@@ -74,10 +74,8 @@ jobs:
         export ECR_IMAGE=${{ secrets.ECR_IMAGE_PROD }}
         envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
         cat manifest/tracking-service-updated.yaml
-        
         ls -ltra manifest/
-        sleep 3
-        kubectl apply -f manifest/configmap.yaml
+        #kubectl apply -f manifest/configmap.yaml
         kubectl apply -f manifest/tracking-service-updated.yaml
         kubect get pod,svc,deployment
        
