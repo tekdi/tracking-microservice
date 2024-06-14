@@ -28,13 +28,11 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: 21.1.0
-    - name: Debug ENV_FILE_PROD secret content
-      run: |
-        echo "Contents of ENV_FILE_PROD (redacted):"
-        echo "${{ secrets.ENV_FILE_PROD }}" | head -c 100
     - name: Copy .env file
+      env:
+        ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_PROD }}
       run: |
-        echo "${{ secrets.ENV_FILE_PROD }}" > manifest/configmap.yaml
+        echo "${{ secrets.ENV_FILE_PROD }}" | base64 -d > manifest/configmap.yaml
         echo "Contents of manifest/configmap.yaml:"
         cat manifest/configmap.yaml
     - name: Show PWD and list content
