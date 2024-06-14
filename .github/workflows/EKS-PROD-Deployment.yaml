@@ -76,6 +76,7 @@ jobs:
         cat manifest/tracking-service-updated.yaml
         ls -ltra manifest/
         kubectl apply -f manifest/configmap.yaml
+        kubectl delete deploy trackingmanagement
         kubectl apply -f manifest/tracking-service-updated.yaml
         echo "kubectl apply exit code: $?"
         kubectl get configmap
