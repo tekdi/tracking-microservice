@@ -77,8 +77,8 @@ jobs:
         rm -rf manifest/tracking-service.yaml
         ls -ltra manifest/
         sleep 3
-        kubectl apply -f manifest/configmap.yaml
-        kubectl apply -f manifest/tracking-service-updated.yaml
+        kubectl apply -f ./manifest/configmap.yaml
+        kubectl apply -f ./manifest/tracking-service-updated.yaml
         sleep 3
         kubectl get pods
         kubectl get services
