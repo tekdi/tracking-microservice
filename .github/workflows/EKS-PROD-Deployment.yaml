@@ -75,7 +75,8 @@ jobs:
         envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
         cat manifest/tracking-service-updated.yaml
         ls -ltra manifest/
-        #kubectl apply -f manifest/configmap.yaml
+        kubectl get pod,svc,deployment
+        kubectl apply -f manifest/configmap.yaml
         kubectl apply -f manifest/tracking-service-updated.yaml
-        kubect get pod,svc,deployment
+        kubectl get pod,svc,deployment
        
