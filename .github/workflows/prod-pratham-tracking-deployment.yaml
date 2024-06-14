@@ -76,6 +76,7 @@ jobs:
         cat manifest/tracking-service-updated.yaml
         rm -rf manifest/tracking-service.yaml
         ls -ltra manifest/
+        envsubst < manifest/tracking-service.yaml | kubectl apply -f - -o yaml > manifest/tracking-service-updated.yaml
         kubectl apply -f - -o yaml > manifest/tracking-service-updated.yaml
         kubectl apply -f manifest/configmap.yaml
         kubectl apply -f manifest/tracking-service-updated.yaml
