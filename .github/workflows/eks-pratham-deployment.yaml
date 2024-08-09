@@ -2,7 +2,7 @@ name: Deploy to EKS-Pratham
 on:
   push:
     branches:
-      - release-1.0.0
+      - main
 #  pull_request_target:
 #   types: [closed]
 #   branches:
