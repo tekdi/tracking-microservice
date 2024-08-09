@@ -8,9 +8,9 @@ import {
   Post,
   Body,
   Delete,
-  UseInterceptors
+  UseInterceptors,
 } from '@nestjs/common';
-import { Response } from "express";
+import { Response } from 'express';
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -21,75 +21,121 @@ import {
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
-  ApiTags
+  ApiTags,
 } from '@nestjs/swagger';
-import { CreateAssessmentTrackingDto } from "./dto/tracking-assessment-create-dto";
-import { SearchAssessmentTrackingDto } from "./dto/tracking-assessment-search-dto";
-import { TrackingAssessmentService } from "./tracking_assessment.service";
+import { CreateAssessmentTrackingDto } from './dto/tracking-assessment-create-dto';
+import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dto';
+import { TrackingAssessmentService } from './tracking_assessment.service';
 import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @Controller()
-@ApiTags("tracking")
+@ApiTags('tracking')
 export class TrackingAssessmentController {
-  constructor(private readonly trackingAssessmentService: TrackingAssessmentService) { }
+  constructor(
+    private readonly trackingAssessmentService: TrackingAssessmentService,
+  ) {}
 
   //Get Assessment by Id
-  @Get("read/:assessmentTrackingId")
-  @ApiOkResponse({ description: "Assessment details fetched successfully" })
-  @ApiNotFoundResponse({ description: "Assessment Not Found" })
-  @ApiInternalServerErrorResponse({ description: "Internal Server Error." })
-  @ApiBadRequestResponse({ description: "Bad Request" })
+  @Get('read/:assessmentTrackingId')
+  @ApiOkResponse({ description: 'Assessment details fetched successfully' })
+  @ApiNotFoundResponse({ description: 'Assessment Not Found' })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
+  @ApiBadRequestResponse({ description: 'Bad Request' })
   @UseInterceptors(CacheInterceptor)
   public async getAssessmentTrackingDetails(
-    @Param("assessmentTrackingId") assessmentTrackingId: string,
+    @Param('assessmentTrackingId') assessmentTrackingId: string,
     @Req() request: Request,
-    @Res() response: Response
+    @Res() response: Response,
   ) {
-    return this.trackingAssessmentService.getAssessmentTrackingDetails(request, assessmentTrackingId, response);
+    return this.trackingAssessmentService.getAssessmentTrackingDetails(
+      request,
+      assessmentTrackingId,
+      response,
+    );
   }
 
-  //Create Assessment 
+  //Create Assessment
   @Post('create')
-  @ApiCreatedResponse({ description: "Assessment has been created successfully." })
+  @ApiCreatedResponse({
+    description: 'Assessment has been created successfully.',
+  })
   @ApiBody({ type: CreateAssessmentTrackingDto })
-  @ApiInternalServerErrorResponse({ description: "Internal Server Error" })
-  @ApiConflictResponse({ description: "Duplicate data." })
-  @ApiBadRequestResponse({ description: "Bad Request" })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error' })
+  @ApiConflictResponse({ description: 'Duplicate data.' })
+  @ApiBadRequestResponse({ description: 'Bad Request' })
   async createAssessmentTracking(
     @Req() request: Request,
     @Body() createAssessmentTrackingDto: CreateAssessmentTrackingDto,
-    @Res() response: Response
+    @Res() response: Response,
   ) {
-    return this.trackingAssessmentService.createAssessmentTracking(request, createAssessmentTrackingDto, response);
+    return this.trackingAssessmentService.createAssessmentTracking(
+      request,
+      createAssessmentTrackingDto,
+      response,
+    );
   }
 
+  // Assessment
+  @Post('search')
+  async searchAssessmentTracking(
+    @Req() request: Request,
+    @Body() searchFilter: any,
+    @Res() response: Response,
+  ) {
+    return this.trackingAssessmentService.searchAssessmentTracking(
+      request,
+      searchFilter,
+      response,
+    );
+  }
 
-  //Search Assessment 
-  @Post("/list")
-  @ApiOkResponse({ description: "Assessment data fetch successfully." })
+  // Assessment
+  @Post('search/status')
+  async searchStatusAssessmentTracking(
+    @Req() request: Request,
+    @Body() searchFilter: any,
+    @Res() response: Response,
+  ) {
+    return this.trackingAssessmentService.searchStatusAssessmentTracking(
+      request,
+      searchFilter,
+      response,
+    );
+  }
+
+  //Search Assessment
+  @Post('/list')
+  @ApiOkResponse({ description: 'Assessment data fetch successfully.' })
   @ApiBody({ type: SearchAssessmentTrackingDto })
-  @ApiInternalServerErrorResponse({ description: "Internal Server Error" })
-  @ApiBadRequestResponse({ description: "Bad Request" })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error' })
+  @ApiBadRequestResponse({ description: 'Bad Request' })
   async searchAssessmentRecords(
     @Req() request: Request,
     @Body() searchAssessmentTrackingDto: SearchAssessmentTrackingDto,
-    @Res() response: Response
+    @Res() response: Response,
   ) {
-    return this.trackingAssessmentService.searchAssessmentRecords(request, searchAssessmentTrackingDto, response);
+    return this.trackingAssessmentService.searchAssessmentRecords(
+      request,
+      searchAssessmentTrackingDto,
+      response,
+    );
   }
 
-
-  //Delete Assessment 
-  @Delete("delete/:assessmentTrackingId")
-  @ApiOkResponse({ description: "Assessment tracking deleted successfully." })
-  @ApiInternalServerErrorResponse({ description: "Internal Server Error." })
-  @ApiBadRequestResponse({ description: "Bad Request." })
-  @ApiNotFoundResponse({ description: "Assessment Not Found." })
+  //Delete Assessment
+  @Delete('delete/:assessmentTrackingId')
+  @ApiOkResponse({ description: 'Assessment tracking deleted successfully.' })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
+  @ApiBadRequestResponse({ description: 'Bad Request.' })
+  @ApiNotFoundResponse({ description: 'Assessment Not Found.' })
   async deleteAssessmentTracking(
-    @Param("assessmentTrackingId") assessmentTrackingId: string,
+    @Param('assessmentTrackingId') assessmentTrackingId: string,
     @Req() request: Request,
-    @Res() response: Response
+    @Res() response: Response,
   ) {
-    return this.trackingAssessmentService.deleteAssessmentTracking(request, assessmentTrackingId, response);
+    return this.trackingAssessmentService.deleteAssessmentTracking(
+      request,
+      assessmentTrackingId,
+      response,
+    );
   }
 }
