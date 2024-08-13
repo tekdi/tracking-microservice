@@ -28,7 +28,7 @@ import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dt
 import { TrackingAssessmentService } from './tracking_assessment.service';
 import { CacheInterceptor } from '@nestjs/cache-manager';
 
-@Controller()
+@Controller('assessment')
 @ApiTags('tracking')
 export class TrackingAssessmentController {
   constructor(

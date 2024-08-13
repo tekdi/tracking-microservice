@@ -181,7 +181,6 @@ export class TrackingAssessmentService {
         //insert multiple items
         const result_score =
           await this.assessmentTrackingScoreDetailRepository.save(scoreObj);
-        console.log('result_score', result_score);
       } catch (e) {
         //Error in CreateScoreDetail!
         console.log(e);
@@ -247,22 +246,102 @@ export class TrackingAssessmentService {
   ) {
     try {
       let output_result = [];
+      let contentIdArray = searchFilter?.contentId;
       let contentId_text = '';
-      for (let i = 0; i < searchFilter?.contentId.length; i++) {
+      for (let i = 0; i < contentIdArray.length; i++) {
+        let contentId = contentIdArray[i];
         if (i == 0) {
-          contentId_text = `${contentId_text}'${searchFilter.contentId[i]}'`;
+          contentId_text = `${contentId_text}'${contentId}'`;
         } else {
-          contentId_text = `${contentId_text},'${searchFilter.contentId[i]}'`;
+          contentId_text = `${contentId_text},'${contentId}'`;
         }
       }
-      const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId","userId","courseId","batchId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent" FROM assessment_tracking WHERE "userId"=$1 and "contentId" in (${contentId_text}) and "batchId"=$2`,
-        [searchFilter?.userId, searchFilter?.batchId],
-      );
+      let userIdArray = searchFilter?.userId;
+      for (let i = 0; i < userIdArray.length; i++) {
+        let userId = userIdArray[i];
+        const result = await this.dataSource.query(
+          `WITH latest_assessment AS (
+              SELECT 
+                  "assessmentTrackingId",
+                  "userId",
+                  "courseId",
+                  "batchId",
+                  "contentId",
+                  "attemptId",
+                  "createdOn",
+                  "lastAttemptedOn",
+                  "totalMaxScore",
+                  "totalScore",
+                  "updatedOn",
+                  "timeSpent",
+                  ROW_NUMBER() OVER (PARTITION BY "userId", "contentId" ORDER BY "createdOn" DESC) as row_num
+              FROM 
+                  assessment_tracking
+              WHERE 
+                  "userId" = $1 
+                  AND "contentId" IN (${contentId_text}) 
+                  AND "batchId" = $2
+          )
+          SELECT 
+              "assessmentTrackingId",
+              "userId",
+              "courseId",
+              "batchId",
+              "contentId",
+              "attemptId",
+              "createdOn",
+              "lastAttemptedOn",
+              "totalMaxScore",
+              "totalScore",
+              "updatedOn",
+              "timeSpent"
+          FROM 
+              latest_assessment
+          WHERE 
+              row_num = 1;`,
+          [userId, searchFilter?.batchId],
+        );
+        for (let j = 0; j < result.length; j++) {
+          let temp_result = result[j];
+          let maxMark = temp_result?.totalMaxScore;
+          let scoreMark = temp_result?.totalScore;
+          let percentage = (scoreMark / maxMark) * 100;
+          const roundedPercentage = parseFloat(percentage.toFixed(2)); // Rounds to 2 decimal places
+          temp_result.percentage = roundedPercentage;
+          result[j] = temp_result;
+        }
+        let percentage = 0;
+        let status = '';
+        if (result.length == contentIdArray.length) {
+          let total_percentage = 0;
+          for (let j = 0; j < result.length; j++) {
+            let temp_result = result[j];
+            total_percentage = total_percentage + temp_result?.percentage;
+          }
+          let temp_percentage = total_percentage / result.length;
+          percentage = parseFloat(temp_percentage.toFixed(2));
+          status = 'Completed';
+        } else if (result.length == 0) {
+          percentage = 0;
+          status = 'Not Started';
+        } else {
+          percentage = 0;
+          status = 'In Progress';
+        }
+        let temp_obj = {
+          userId: userId,
+          percentageString: `${percentage}%`,
+          percentage: `${percentage}`,
+          status: status,
+          assessments: result,
+        };
+        output_result.push(temp_obj);
+      }
+
       return response.status(200).send({
         success: true,
         message: 'success',
-        data: result,
+        data: output_result,
       });
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
