@@ -5,7 +5,7 @@ import { ValidationPipe, BadRequestException } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('tracking-assessment/v1');
+  app.setGlobalPrefix('v1/tracking');
 
   // Enable the global validation pipe
   app.useGlobalPipes(new ValidationPipe({
