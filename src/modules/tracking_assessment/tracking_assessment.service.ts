@@ -323,10 +323,10 @@ export class TrackingAssessmentService {
           status = 'Completed';
         } else if (result.length == 0) {
           percentage = 0;
-          status = 'Not Started';
+          status = 'Not_Started';
         } else {
           percentage = 0;
-          status = 'In Progress';
+          status = 'In_Progress';
         }
         let temp_obj = {
           userId: userId,
