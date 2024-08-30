@@ -1,12 +1,8 @@
-name: Deploy to EKS-Pratham
+name: Deploy to EKS-DEV pratham
 on:
   push:
     branches:
       - main
-#  pull_request_target:
-#   types: [closed]
-#   branches:
-#     - main
 env:
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
