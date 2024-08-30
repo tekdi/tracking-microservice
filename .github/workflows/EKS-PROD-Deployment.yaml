@@ -1,8 +1,8 @@
 name: PROD-PRATHAM-MICROSERVICES-TRACKING-DEPLOYMENT on EKS
 on:
-  push:
-    branches:
-      - june15-pilot
+  #push:
+ #   branches:
+#      - june15-pilot
 
 env:
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_PROD }}
