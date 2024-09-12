@@ -5,13 +5,13 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { AssessmentTracking } from 'src/modules/tracking_assessment/entities/tracking-assessment-entity';
-import { AssessmentTrackingScoreDetail } from 'src/modules/tracking_assessment/entities/tracking-assessment-score-details-entity';
+import { ContentTracking } from 'src/modules/tracking_content/entities/tracking-content-entity';
+import { ContentTrackingDetail } from 'src/modules/tracking_content/entities/tracking-content-details-entity';
 import { Repository } from 'typeorm';
-import { CreateAssessmentTrackingDto } from './dto/tracking-assessment-create-dto';
+import { CreateContentTrackingDto } from './dto/tracking-content-create-dto';
 import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
-import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dto';
+import { SearchContentTrackingDto } from './dto/tracking-content-search-dto';
 import { IsUUID, isUUID } from 'class-validator';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -19,13 +19,13 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 
 @Injectable()
-export class TrackingAssessmentService {
+export class TrackingContentService {
   private ttl;
   constructor(
-    @InjectRepository(AssessmentTracking)
-    private assessmentTrackingRepository: Repository<AssessmentTracking>,
-    @InjectRepository(AssessmentTrackingScoreDetail)
-    private assessmentTrackingScoreDetailRepository: Repository<AssessmentTrackingScoreDetail>,
+    @InjectRepository(ContentTracking)
+    private contentTrackingRepository: Repository<ContentTracking>,
+    @InjectRepository(ContentTrackingDetail)
+    private contentTrackingDetailRepository: Repository<ContentTrackingDetail>,
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private dataSource: DataSource,
@@ -33,13 +33,13 @@ export class TrackingAssessmentService {
     this.ttl = this.configService.get('TTL');
   }
 
-  public async getAssessmentTrackingDetails(
+  public async getContentTrackingDetails(
     request: any,
-    assessmentTrackingId: string,
+    contentTrackingId: string,
     response: Response,
   ) {
-    const apiId = 'api.get.assessmentTrackingId';
-    if (!isUUID(assessmentTrackingId)) {
+    const apiId = 'api.get.contentTrackingId';
+    if (!isUUID(contentTrackingId)) {
       return APIResponse.error(
         response,
         apiId,
@@ -50,17 +50,17 @@ export class TrackingAssessmentService {
     }
     try {
       const ttl = this.ttl;
-      const cachedData: any = await this.cacheService.get(assessmentTrackingId);
+      const cachedData: any = await this.cacheService.get(contentTrackingId);
       if (cachedData) {
         return APIResponse.success(
           response,
           apiId,
           cachedData,
           HttpStatus.OK,
-          'Assessment data fetch successfully.',
+          'Content data fetch successfully.',
         );
       }
-      const result = await this.findAssessment(assessmentTrackingId);
+      const result = await this.findContent(contentTrackingId);
       if (!result) {
         return APIResponse.error(
           response,
@@ -70,30 +70,30 @@ export class TrackingAssessmentService {
           HttpStatus.NOT_FOUND,
         );
       }
-      await this.cacheService.set(assessmentTrackingId, result, ttl);
+      await this.cacheService.set(contentTrackingId, result, ttl);
       return APIResponse.success(
         response,
         apiId,
         result,
         HttpStatus.OK,
-        'Assessment data fetch successfully.',
+        'Content data fetch successfully.',
       );
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
       return APIResponse.error(
         response,
         apiId,
-        'Something went wrong in assessment creation',
+        'Something went wrong in content creation',
         errorMessage,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  public async findAssessment(assessmentTrackingId) {
-    const result = await this.assessmentTrackingRepository.findOne({
+  public async findContent(contentTrackingId) {
+    const result = await this.contentTrackingRepository.findOne({
       where: {
-        assessmentTrackingId: assessmentTrackingId,
+        contentTrackingId: contentTrackingId,
       },
     });
     if (result) {
@@ -101,30 +101,28 @@ export class TrackingAssessmentService {
     }
     return false;
   }
-  public async createAssessmentTracking(
+  public async createContentTracking(
     request: any,
-    createAssessmentTrackingDto: CreateAssessmentTrackingDto,
+    createContentTrackingDto: CreateContentTrackingDto,
     response: Response,
   ) {
-    const apiId = 'api.create.assessment';
+    const apiId = 'api.create.content';
     try {
       const allowedKeys = [
-        'assessmentTrackingId',
+        'contentTrackingId',
         'userId',
         'courseId',
         'batchId',
         'contentId',
-        'attemptId',
+        'contentType',
+        'contentMime',
         'createdOn',
-        'lastAttemptedOn',
-        'assessmentSummary',
-        'totalMaxScore',
-        'totalScore',
-        'timeSpent',
+        'lastAccessOn',
+        'detailsObject',
       ];
       const errors = await this.validateCreateDTO(
         allowedKeys,
-        createAssessmentTrackingDto,
+        createContentTrackingDto,
       );
 
       if (errors.length > 0) {
@@ -137,7 +135,7 @@ export class TrackingAssessmentService {
         );
       }
 
-      if (!isUUID(createAssessmentTrackingDto.userId)) {
+      if (!isUUID(createContentTrackingDto.userId)) {
         return APIResponse.error(
           response,
           apiId,
@@ -147,64 +145,85 @@ export class TrackingAssessmentService {
         );
       }
 
-      const result = await this.assessmentTrackingRepository.save(
-        createAssessmentTrackingDto,
+      //get detailsObject for extract details
+      const detailsObject = createContentTrackingDto.detailsObject;
+      delete createContentTrackingDto.detailsObject;
+
+      //find contentTracking
+      const result_content = await this.dataSource.query(
+        `SELECT "contentTrackingId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3`,
+        [
+          createContentTrackingDto?.userId,
+          createContentTrackingDto?.contentId,
+          createContentTrackingDto?.batchId,
+        ],
       );
-      //save score details
+      let contentTrackingId = '';
+      if (result_content.length > 0) {
+        contentTrackingId = result_content[0]?.contentTrackingId;
+      } else {
+        const result = await this.contentTrackingRepository.save(
+          createContentTrackingDto,
+        );
+        contentTrackingId = result.contentTrackingId;
+      }
+
+      //save content details
       try {
-        let testId = result.assessmentTrackingId;
-        let score_detail = createAssessmentTrackingDto.assessmentSummary;
-        let scoreObj = [];
-        for (let i = 0; i < score_detail.length; i++) {
-          let section: any = score_detail[i];
-          let itemData = section?.data;
-          if (itemData) {
-            for (let j = 0; j < itemData.length; j++) {
-              let dataItem = itemData[j];
-              scoreObj.push({
-                userId: createAssessmentTrackingDto.userId,
-                assessmentTrackingId: testId,
-                questionId: dataItem?.item?.id,
-                pass: dataItem?.pass,
-                sectionId: dataItem?.item?.sectionId,
-                resValue: dataItem?.resvalues
-                  ? JSON.stringify(dataItem.resvalues)
-                  : '',
-                duration: dataItem?.duration,
-                score: dataItem?.score,
-                maxScore: dataItem?.item?.maxscore,
-                queTitle: dataItem?.item?.title,
-              });
-            }
+        let testId = contentTrackingId;
+        let details = detailsObject;
+        let detailsObj = [];
+        for (let i = 0; i < details.length; i++) {
+          let detail: any = details[i];
+          let eid = detail?.eid;
+          let edata = detail?.edata;
+          if (eid && edata) {
+            detailsObj.push({
+              contentTrackingId: testId,
+              userId: createContentTrackingDto.userId,
+              eid: eid,
+              edata: edata,
+              duration: edata?.duration || null,
+              mode: edata?.mode || '',
+              pageid: edata?.pageid || '',
+              type: edata?.type || '',
+              subtype: edata?.subtype || '',
+              summary: edata?.summary || [],
+              progress: edata?.summary
+                ? edata.summary[0]?.progress || null
+                : null,
+            });
           }
         }
+        //console.log(detailsObj);
         //insert multiple items
         const result_score =
-          await this.assessmentTrackingScoreDetailRepository.save(scoreObj);
+          await this.contentTrackingDetailRepository.save(detailsObj);
+        console.log('result_score', result_score);
       } catch (e) {
-        //Error in CreateScoreDetail!
+        //Error in CreateDetail!
         console.log(e);
       }
       return APIResponse.success(
         response,
         apiId,
-        { assessmentTrackingId: result.assessmentTrackingId },
+        { contentTrackingId: contentTrackingId },
         HttpStatus.CREATED,
-        'Assessment submitted successfully.',
+        'Content submitted successfully.',
       );
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
       return APIResponse.error(
         response,
         apiId,
-        'Failed to fetch assessment data.',
+        'Failed to fetch content data.',
         errorMessage,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  public async searchAssessmentTracking(
+  public async searchContentTracking(
     request: any,
     searchFilter: any,
     response: Response,
@@ -212,16 +231,16 @@ export class TrackingAssessmentService {
     try {
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId","userId","courseId","batchId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3`,
+        `SELECT "contentTrackingId","userId","courseId","batchId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3`,
         [searchFilter?.userId, searchFilter?.contentId, searchFilter?.batchId],
       );
       for (let i = 0; i < result.length; i++) {
-        const result_score = await this.dataSource.query(
-          `SELECT "questionId","pass","sectionId","resValue","duration","score","maxScore","queTitle" FROM assessment_tracking_score_detail WHERE "assessmentTrackingId"=$1 `,
-          [result[i].assessmentTrackingId],
+        const result_details = await this.dataSource.query(
+          `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
+          [result[i].contentTrackingId],
         );
         let temp_result = result[i];
-        temp_result.score_details = result_score;
+        temp_result.details = result_details;
         output_result.push(temp_result);
       }
       return response.status(200).send({
@@ -239,7 +258,7 @@ export class TrackingAssessmentService {
     }
   }
 
-  public async searchStatusAssessmentTracking(
+  public async searchStatusContentTracking(
     request: any,
     searchFilter: any,
     response: Response,
@@ -260,80 +279,74 @@ export class TrackingAssessmentService {
       for (let i = 0; i < userIdArray.length; i++) {
         let userId = userIdArray[i];
         const result = await this.dataSource.query(
-          `WITH latest_assessment AS (
+          `WITH latest_content AS (
               SELECT 
-                  "assessmentTrackingId",
+                  "contentTrackingId",
                   "userId",
                   "courseId",
                   "batchId",
                   "contentId",
-                  "attemptId",
+                  "contentType",
+                  "contentMime",
                   "createdOn",
-                  "lastAttemptedOn",
-                  "totalMaxScore",
-                  "totalScore",
+                  "lastAccessOn",
                   "updatedOn",
-                  "timeSpent",
                   ROW_NUMBER() OVER (PARTITION BY "userId", "contentId" ORDER BY "createdOn" DESC) as row_num
               FROM 
-                  assessment_tracking
+                  content_tracking
               WHERE 
                   "userId" = $1 
                   AND "contentId" IN (${contentId_text}) 
                   AND "batchId" = $2
           )
           SELECT 
-              "assessmentTrackingId",
+              "contentTrackingId",
               "userId",
               "courseId",
               "batchId",
               "contentId",
-              "attemptId",
+              "contentType",
+              "contentMime",
               "createdOn",
-              "lastAttemptedOn",
-              "totalMaxScore",
-              "totalScore",
-              "updatedOn",
-              "timeSpent"
+              "lastAccessOn",
+              "updatedOn"
           FROM 
-              latest_assessment
+              latest_content
           WHERE 
               row_num = 1;`,
           [userId, searchFilter?.batchId],
         );
-        for (let j = 0; j < result.length; j++) {
-          let temp_result = result[j];
-          let maxMark = temp_result?.totalMaxScore;
-          let scoreMark = temp_result?.totalScore;
-          let percentage = (scoreMark / maxMark) * 100;
-          const roundedPercentage = parseFloat(percentage.toFixed(2)); // Rounds to 2 decimal places
-          temp_result.percentage = roundedPercentage;
-          result[j] = temp_result;
-        }
-        let percentage = 0;
-        let status = '';
-        if (result.length == contentIdArray.length) {
-          let total_percentage = 0;
-          for (let j = 0; j < result.length; j++) {
-            let temp_result = result[j];
-            total_percentage = total_percentage + temp_result?.percentage;
+        //find out details
+        let output_result_details = [];
+        for (let i = 0; i < result.length; i++) {
+          const result_details = await this.dataSource.query(
+            `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
+            [result[i].contentTrackingId],
+          );
+          //find status
+          let percentage = 0;
+          let status = 'Not_Started';
+          for (let j = 0; j < result_details.length; j++) {
+            let temp_result_details = result_details[j];
+            if (temp_result_details?.eid == 'START') {
+              status = 'In_Progress';
+              percentage = temp_result_details?.progress;
+            }
+            if (temp_result_details?.eid == 'END') {
+              status = 'Completed';
+              percentage = temp_result_details?.progress;
+              break;
+            }
           }
-          let temp_percentage = total_percentage / result.length;
-          percentage = parseFloat(temp_percentage.toFixed(2));
-          status = 'Completed';
-        } else if (result.length == 0) {
-          percentage = 0;
-          status = 'Not_Started';
-        } else {
-          percentage = 0;
-          status = 'In_Progress';
+          let temp_result = result[i];
+          temp_result.percentage = percentage;
+          temp_result.status = status;
+          temp_result.details = result_details;
+          output_result_details.push(temp_result);
         }
         let temp_obj = {
           userId: userId,
-          percentageString: `${percentage}%`,
-          percentage: `${percentage}`,
-          status: status,
-          assessments: result,
+          contents: output_result_details,
         };
         output_result.push(temp_obj);
       }
@@ -353,16 +366,16 @@ export class TrackingAssessmentService {
     }
   }
 
-  public async searchAssessmentRecords(
+  public async searchContentRecords(
     request: any,
-    searchAssessmentTrackingDto: SearchAssessmentTrackingDto,
+    searchContentTrackingDto: SearchContentTrackingDto,
     response: Response,
   ) {
-    const apiId = 'api.list.assessment';
+    const apiId = 'api.list.content';
 
     try {
       const filterKeys = [
-        'assessmentTrackingId',
+        'contentTrackingId',
         'userId',
         'courseId',
         'batchId',
@@ -372,20 +385,19 @@ export class TrackingAssessmentService {
       const sortKeys = ['field', 'order'];
       const orderValue = ['asc', 'desc'];
       const orderField = [
-        'assessmentTrackingId',
+        'contentTrackingId',
         'userId',
         'courseId',
         'batchId',
         'contentId',
-        'attemptId',
+        'contentType',
+        'contentMime',
         'createdOn',
-        'lastAttemptedOn',
-        'totalMaxScore',
-        'totalScore',
+        'lastAccessOn',
         'updatedOn',
       ];
 
-      const { pagination, sort, filters } = searchAssessmentTrackingDto;
+      const { pagination, sort, filters } = searchContentTrackingDto;
       let limit = pagination?.pageSize;
       let page = pagination?.page;
       const orderBy = sort?.field;
@@ -500,25 +512,26 @@ export class TrackingAssessmentService {
       }
 
       if (
-        whereClause['assessmentTrackingId'] &&
-        !isUUID(whereClause['assessmentTrackingId'])
+        whereClause['contentTrackingId'] &&
+        !isUUID(whereClause['contentTrackingId'])
       ) {
         return APIResponse.error(
           response,
           apiId,
-          'Invalid Assessment Tracking ID format. It must be a valid UUID.',
+          'Invalid Content Tracking ID format. It must be a valid UUID.',
           'Please enter a valid UUID.',
           HttpStatus.BAD_REQUEST,
         );
       }
 
-      const [result, total] =
-        await this.assessmentTrackingRepository.findAndCount({
+      const [result, total] = await this.contentTrackingRepository.findAndCount(
+        {
           where: whereClause,
           order: orderOption,
           skip: offset,
           take: limit,
-        });
+        },
+      );
       if (result.length == 0) {
         return APIResponse.error(
           response,
@@ -533,14 +546,14 @@ export class TrackingAssessmentService {
         apiId,
         result,
         HttpStatus.OK,
-        'Assessment data fetched successfully.',
+        'Content data fetched successfully.',
       );
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
       return APIResponse.error(
         response,
         apiId,
-        'Failed to fetch assessment data.',
+        'Failed to fetch content data.',
         errorMessage,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -566,14 +579,14 @@ export class TrackingAssessmentService {
     return invalidKeys;
   }
 
-  public async deleteAssessmentTracking(
+  public async deleteContentTracking(
     request: any,
-    assessmentTrackingId: string,
+    contentTrackingId: string,
     response: Response,
   ) {
-    const apiId = 'api.delete.assessment';
+    const apiId = 'api.delete.content';
     try {
-      if (!isUUID(assessmentTrackingId)) {
+      if (!isUUID(contentTrackingId)) {
         return APIResponse.error(
           response,
           apiId,
@@ -582,15 +595,13 @@ export class TrackingAssessmentService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      const getAssessmentData = await this.assessmentTrackingRepository.findOne(
-        {
-          where: {
-            assessmentTrackingId: assessmentTrackingId,
-          },
+      const getContentData = await this.contentTrackingRepository.findOne({
+        where: {
+          contentTrackingId: contentTrackingId,
         },
-      );
+      });
 
-      if (!getAssessmentData) {
+      if (!getContentData) {
         return APIResponse.error(
           response,
           apiId,
@@ -600,21 +611,20 @@ export class TrackingAssessmentService {
         );
       }
 
-      const deleteAssessment = await this.assessmentTrackingRepository.delete({
-        assessmentTrackingId: assessmentTrackingId,
+      const deleteContent = await this.contentTrackingRepository.delete({
+        contentTrackingId: contentTrackingId,
       });
-      //delete all releated score details also
-      const deleteAssessmentDetail =
-        await this.assessmentTrackingScoreDetailRepository.delete({
-          assessmentTrackingId: assessmentTrackingId,
+      const deleteContentDetail =
+        await this.contentTrackingDetailRepository.delete({
+          contentTrackingId: contentTrackingId,
         });
-      if (deleteAssessment['affected'] > 0) {
+      if (deleteContent['affected'] > 0) {
         return APIResponse.success(
           response,
           apiId,
-          { data: `${assessmentTrackingId} is Deleted` },
+          { data: `${contentTrackingId} is Deleted` },
           HttpStatus.OK,
-          'Assessment data fetch successfully.',
+          'Content data fetch successfully.',
         );
       }
     } catch (e) {
@@ -622,7 +632,7 @@ export class TrackingAssessmentService {
       return APIResponse.error(
         response,
         apiId,
-        'Failed to fetch assessment data.',
+        'Failed to fetch content data.',
         'INTERNAL_SERVER_ERROR',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
