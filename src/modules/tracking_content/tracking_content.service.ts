@@ -417,11 +417,13 @@ export class TrackingContentService {
         for (let jj = 0; jj < courseIdArray.length; jj++) {
           let courseId = courseIdArray[jj];
           const result = await this.dataSource.query(
-            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 order by "createdOn" asc;`,
+            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 order by "createdOn" asc;`,
             [userId, courseId],
           );
           let in_progress = 0;
           let completed = 0;
+          let in_progress_list = [];
+          let completed_list = [];
           for (let i = 0; i < result.length; i++) {
             const result_details = await this.dataSource.query(
               `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
@@ -444,8 +446,10 @@ export class TrackingContentService {
             }
             if (status == 'In_Progress') {
               in_progress++;
+              in_progress_list.push(result[i].contentId);
             } else if (status == 'Completed') {
               completed++;
+              completed_list.push(result[i].contentId);
             }
           }
           courseList.push({
@@ -453,6 +457,8 @@ export class TrackingContentService {
             in_progress: in_progress,
             completed: completed,
             started_on: result[0]?.createdOn ? result[0].createdOn : null,
+            in_progress_list: in_progress_list,
+            completed_list: completed_list,
           });
         }
         userList.push({ userId: userId, course: courseList });
@@ -490,11 +496,13 @@ export class TrackingContentService {
         for (let jj = 0; jj < unitIdArray.length; jj++) {
           let unitId = unitIdArray[jj];
           const result = await this.dataSource.query(
-            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "unitId"=$3 order by "createdOn" asc;`,
+            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "unitId"=$3 order by "createdOn" asc;`,
             [userId, courseId, unitId],
           );
           let in_progress = 0;
           let completed = 0;
+          let in_progress_list = [];
+          let completed_list = [];
           for (let i = 0; i < result.length; i++) {
             const result_details = await this.dataSource.query(
               `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
@@ -517,8 +525,10 @@ export class TrackingContentService {
             }
             if (status == 'In_Progress') {
               in_progress++;
+              in_progress_list.push(result[i].contentId);
             } else if (status == 'Completed') {
               completed++;
+              completed_list.push(result[i].contentId);
             }
           }
           unitList.push({
@@ -527,6 +537,8 @@ export class TrackingContentService {
             in_progress: in_progress,
             completed: completed,
             started_on: result[0]?.createdOn ? result[0].createdOn : null,
+            in_progress_list: in_progress_list,
+            completed_list: completed_list,
           });
         }
         userList.push({ userId: userId, unit: unitList });
