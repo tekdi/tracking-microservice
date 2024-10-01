@@ -103,6 +103,34 @@ export class TrackingContentController {
     );
   }
 
+  // Course
+  @Post('course/status')
+  async searchStatusCourseTracking(
+    @Req() request: Request,
+    @Body() searchFilter: any,
+    @Res() response: Response,
+  ) {
+    return this.trackingContentService.searchStatusCourseTracking(
+      request,
+      searchFilter,
+      response,
+    );
+  }
+
+  // Unit
+  @Post('unit/status')
+  async searchStatusUnitTracking(
+    @Req() request: Request,
+    @Body() searchFilter: any,
+    @Res() response: Response,
+  ) {
+    return this.trackingContentService.searchStatusUnitTracking(
+      request,
+      searchFilter,
+      response,
+    );
+  }
+
   //Search Content
   @Post('/list')
   @ApiOkResponse({ description: 'Content data fetch successfully.' })

@@ -121,6 +121,7 @@ export class TrackingAssessmentService {
         'totalMaxScore',
         'totalScore',
         'timeSpent',
+        'unitId',
       ];
       const errors = await this.validateCreateDTO(
         allowedKeys,
@@ -212,8 +213,14 @@ export class TrackingAssessmentService {
     try {
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId","userId","courseId","batchId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3`,
-        [searchFilter?.userId, searchFilter?.contentId, searchFilter?.batchId],
+        `SELECT "assessmentTrackingId","userId","courseId","batchId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent","unitId" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3 and "courseId"=$4 and "unitId"=$5`,
+        [
+          searchFilter?.userId,
+          searchFilter?.contentId,
+          searchFilter?.batchId,
+          searchFilter?.courseId,
+          searchFilter?.unitId,
+        ],
       );
       for (let i = 0; i < result.length; i++) {
         const result_score = await this.dataSource.query(
@@ -256,6 +263,28 @@ export class TrackingAssessmentService {
           contentId_text = `${contentId_text},'${contentId}'`;
         }
       }
+      //courseId
+      let courseIdArray = searchFilter?.courseId;
+      let courseId_text = '';
+      for (let i = 0; i < courseIdArray.length; i++) {
+        let courseId = courseIdArray[i];
+        if (i == 0) {
+          courseId_text = `${courseId_text}'${courseId}'`;
+        } else {
+          courseId_text = `${courseId_text},'${courseId}'`;
+        }
+      }
+      //unitId
+      let unitIdArray = searchFilter?.unitId;
+      let unitId_text = '';
+      for (let i = 0; i < unitIdArray.length; i++) {
+        let unitId = unitIdArray[i];
+        if (i == 0) {
+          unitId_text = `${unitId_text}'${unitId}'`;
+        } else {
+          unitId_text = `${unitId_text},'${unitId}'`;
+        }
+      }
       let userIdArray = searchFilter?.userId;
       for (let i = 0; i < userIdArray.length; i++) {
         let userId = userIdArray[i];
@@ -274,11 +303,14 @@ export class TrackingAssessmentService {
                   "totalScore",
                   "updatedOn",
                   "timeSpent",
-                  ROW_NUMBER() OVER (PARTITION BY "userId", "contentId" ORDER BY "createdOn" DESC) as row_num
+                  "unitId",
+                  ROW_NUMBER() OVER (PARTITION BY "userId", "batchId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
               FROM 
                   assessment_tracking
               WHERE 
                   "userId" = $1 
+                  AND "courseId" IN (${courseId_text}) 
+                  AND "unitId" IN (${unitId_text}) 
                   AND "contentId" IN (${contentId_text}) 
                   AND "batchId" = $2
           )
@@ -294,7 +326,8 @@ export class TrackingAssessmentService {
               "totalMaxScore",
               "totalScore",
               "updatedOn",
-              "timeSpent"
+              "timeSpent",
+              "unitId"
           FROM 
               latest_assessment
           WHERE 
@@ -365,6 +398,7 @@ export class TrackingAssessmentService {
         'assessmentTrackingId',
         'userId',
         'courseId',
+        'unitId',
         'batchId',
         'contentId',
       ];
@@ -383,6 +417,7 @@ export class TrackingAssessmentService {
         'totalMaxScore',
         'totalScore',
         'updatedOn',
+        'unitId',
       ];
 
       const { pagination, sort, filters } = searchAssessmentTrackingDto;
@@ -614,7 +649,7 @@ export class TrackingAssessmentService {
           apiId,
           { data: `${assessmentTrackingId} is Deleted` },
           HttpStatus.OK,
-          'Assessment data fetch successfully.',
+          'Assessment data deleted successfully.',
         );
       }
     } catch (e) {

@@ -111,6 +111,15 @@ export class CreateAssessmentTrackingDto {
     @IsNotEmpty()
     timeSpent: number;
 
+    @ApiPropertyOptional({
+        type: () => String,
+        description: "Unit Id",
+    })
+    @Expose()
+    @IsString()
+    @IsNotEmpty()
+    unitId: string;
+
     constructor(obj?: Partial<CreateAssessmentTrackingDto>) {
         if (obj) {
             Object.assign(this, obj);

@@ -119,6 +119,7 @@ export class TrackingContentService {
         'createdOn',
         'lastAccessOn',
         'detailsObject',
+        'unitId',
       ];
       const errors = await this.validateCreateDTO(
         allowedKeys,
@@ -151,11 +152,13 @@ export class TrackingContentService {
 
       //find contentTracking
       const result_content = await this.dataSource.query(
-        `SELECT "contentTrackingId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3`,
+        `SELECT "contentTrackingId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3 and "courseId"=$4 and "unitId"=$5`,
         [
           createContentTrackingDto?.userId,
           createContentTrackingDto?.contentId,
           createContentTrackingDto?.batchId,
+          createContentTrackingDto?.courseId,
+          createContentTrackingDto?.unitId,
         ],
       );
       let contentTrackingId = '';
@@ -199,7 +202,7 @@ export class TrackingContentService {
         //insert multiple items
         const result_score =
           await this.contentTrackingDetailRepository.save(detailsObj);
-        console.log('result_score', result_score);
+        //console.log('result_score', result_score);
       } catch (e) {
         //Error in CreateDetail!
         console.log(e);
@@ -231,8 +234,14 @@ export class TrackingContentService {
     try {
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "contentTrackingId","userId","courseId","batchId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3`,
-        [searchFilter?.userId, searchFilter?.contentId, searchFilter?.batchId],
+        `SELECT "contentTrackingId","userId","courseId","batchId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn","unitId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3 and "courseId"=$4 and "unitId"=$5`,
+        [
+          searchFilter?.userId,
+          searchFilter?.contentId,
+          searchFilter?.batchId,
+          searchFilter?.courseId,
+          searchFilter?.unitId,
+        ],
       );
       for (let i = 0; i < result.length; i++) {
         const result_details = await this.dataSource.query(
@@ -275,9 +284,31 @@ export class TrackingContentService {
           contentId_text = `${contentId_text},'${contentId}'`;
         }
       }
+      //courseId
+      let courseIdArray = searchFilter?.courseId;
+      let courseId_text = '';
+      for (let i = 0; i < courseIdArray.length; i++) {
+        let courseId = courseIdArray[i];
+        if (i == 0) {
+          courseId_text = `${courseId_text}'${courseId}'`;
+        } else {
+          courseId_text = `${courseId_text},'${courseId}'`;
+        }
+      }
+      //unitId
+      let unitIdArray = searchFilter?.unitId;
+      let unitId_text = '';
+      for (let i = 0; i < unitIdArray.length; i++) {
+        let unitId = unitIdArray[i];
+        if (i == 0) {
+          unitId_text = `${unitId_text}'${unitId}'`;
+        } else {
+          unitId_text = `${unitId_text},'${unitId}'`;
+        }
+      }
       let userIdArray = searchFilter?.userId;
-      for (let i = 0; i < userIdArray.length; i++) {
-        let userId = userIdArray[i];
+      for (let ii = 0; ii < userIdArray.length; ii++) {
+        let userId = userIdArray[ii];
         const result = await this.dataSource.query(
           `WITH latest_content AS (
               SELECT 
@@ -291,11 +322,14 @@ export class TrackingContentService {
                   "createdOn",
                   "lastAccessOn",
                   "updatedOn",
-                  ROW_NUMBER() OVER (PARTITION BY "userId", "contentId" ORDER BY "createdOn" DESC) as row_num
+                  "unitId",
+                  ROW_NUMBER() OVER (PARTITION BY "userId", "batchId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
               FROM 
                   content_tracking
               WHERE 
                   "userId" = $1 
+                  AND "courseId" IN (${courseId_text}) 
+                  AND "unitId" IN (${unitId_text}) 
                   AND "contentId" IN (${contentId_text}) 
                   AND "batchId" = $2
           )
@@ -309,7 +343,8 @@ export class TrackingContentService {
               "contentMime",
               "createdOn",
               "lastAccessOn",
-              "updatedOn"
+              "updatedOn",
+              "unitId"
           FROM 
               latest_content
           WHERE 
@@ -366,6 +401,152 @@ export class TrackingContentService {
     }
   }
 
+  public async searchStatusCourseTracking(
+    request: any,
+    searchFilter: any,
+    response: Response,
+  ) {
+    try {
+      //courseId
+      let courseIdArray = searchFilter?.courseId;
+      let userIdArray = searchFilter?.userId;
+      let userList = [];
+      for (let ii = 0; ii < userIdArray.length; ii++) {
+        let userId = userIdArray[ii];
+        let courseList = [];
+        for (let jj = 0; jj < courseIdArray.length; jj++) {
+          let courseId = courseIdArray[jj];
+          const result = await this.dataSource.query(
+            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 order by "createdOn" asc;`,
+            [userId, courseId],
+          );
+          let in_progress = 0;
+          let completed = 0;
+          for (let i = 0; i < result.length; i++) {
+            const result_details = await this.dataSource.query(
+              `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
+              [result[i].contentTrackingId],
+            );
+            //find status
+            let percentage = 0;
+            let status = 'Not_Started';
+            for (let j = 0; j < result_details.length; j++) {
+              let temp_result_details = result_details[j];
+              if (temp_result_details?.eid == 'START') {
+                status = 'In_Progress';
+                percentage = temp_result_details?.progress;
+              }
+              if (temp_result_details?.eid == 'END') {
+                status = 'Completed';
+                percentage = temp_result_details?.progress;
+                break;
+              }
+            }
+            if (status == 'In_Progress') {
+              in_progress++;
+            } else if (status == 'Completed') {
+              completed++;
+            }
+          }
+          courseList.push({
+            courseId: courseId,
+            in_progress: in_progress,
+            completed: completed,
+            started_on: result[0]?.createdOn ? result[0].createdOn : null,
+          });
+        }
+        userList.push({ userId: userId, course: courseList });
+      }
+
+      return response.status(200).send({
+        success: true,
+        message: 'success',
+        data: userList,
+      });
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      return response.status(500).send({
+        success: false,
+        message: errorMessage,
+        data: {},
+      });
+    }
+  }
+
+  public async searchStatusUnitTracking(
+    request: any,
+    searchFilter: any,
+    response: Response,
+  ) {
+    try {
+      //courseId
+      let courseId = searchFilter?.courseId;
+      let unitIdArray = searchFilter?.unitId;
+      let userIdArray = searchFilter?.userId;
+      let userList = [];
+      for (let ii = 0; ii < userIdArray.length; ii++) {
+        let userId = userIdArray[ii];
+        let unitList = [];
+        for (let jj = 0; jj < unitIdArray.length; jj++) {
+          let unitId = unitIdArray[jj];
+          const result = await this.dataSource.query(
+            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "unitId"=$3 order by "createdOn" asc;`,
+            [userId, courseId, unitId],
+          );
+          let in_progress = 0;
+          let completed = 0;
+          for (let i = 0; i < result.length; i++) {
+            const result_details = await this.dataSource.query(
+              `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
+              [result[i].contentTrackingId],
+            );
+            //find status
+            let percentage = 0;
+            let status = 'Not_Started';
+            for (let j = 0; j < result_details.length; j++) {
+              let temp_result_details = result_details[j];
+              if (temp_result_details?.eid == 'START') {
+                status = 'In_Progress';
+                percentage = temp_result_details?.progress;
+              }
+              if (temp_result_details?.eid == 'END') {
+                status = 'Completed';
+                percentage = temp_result_details?.progress;
+                break;
+              }
+            }
+            if (status == 'In_Progress') {
+              in_progress++;
+            } else if (status == 'Completed') {
+              completed++;
+            }
+          }
+          unitList.push({
+            unitId: unitId,
+            courseId: courseId,
+            in_progress: in_progress,
+            completed: completed,
+            started_on: result[0]?.createdOn ? result[0].createdOn : null,
+          });
+        }
+        userList.push({ userId: userId, unit: unitList });
+      }
+
+      return response.status(200).send({
+        success: true,
+        message: 'success',
+        data: userList,
+      });
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      return response.status(500).send({
+        success: false,
+        message: errorMessage,
+        data: {},
+      });
+    }
+  }
+
   public async searchContentRecords(
     request: any,
     searchContentTrackingDto: SearchContentTrackingDto,
@@ -378,6 +559,7 @@ export class TrackingContentService {
         'contentTrackingId',
         'userId',
         'courseId',
+        'unitId',
         'batchId',
         'contentId',
       ];
@@ -388,6 +570,7 @@ export class TrackingContentService {
         'contentTrackingId',
         'userId',
         'courseId',
+        'unitId',
         'batchId',
         'contentId',
         'contentType',

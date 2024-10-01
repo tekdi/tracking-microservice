@@ -34,4 +34,7 @@ export class ContentTracking {
 
   @Column({ type: 'timestamp with time zone' })
   updatedOn: Date;
+
+  @Column()
+  unitId: string;
 }
