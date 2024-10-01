@@ -79,6 +79,15 @@ export class CreateContentTrackingDto {
   @IsNotEmpty()
   detailsObject: string[];
 
+  @ApiPropertyOptional({
+    type: () => String,
+    description: 'Unit Id',
+  })
+  @Expose()
+  @IsString()
+  @IsNotEmpty()
+  unitId: string;
+
   constructor(obj?: Partial<CreateContentTrackingDto>) {
     if (obj) {
       Object.assign(this, obj);

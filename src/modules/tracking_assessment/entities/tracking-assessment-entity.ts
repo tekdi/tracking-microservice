@@ -43,4 +43,7 @@ export class AssessmentTracking {
 
   @Column('numeric')
   timeSpent: number;
+
+  @Column()
+  unitId: string;
 }
