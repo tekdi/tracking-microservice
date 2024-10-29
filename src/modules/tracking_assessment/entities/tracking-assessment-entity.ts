@@ -12,9 +12,6 @@ export class AssessmentTracking {
   courseId: string;
 
   @Column()
-  batchId: string;
-
-  @Column()
   contentId: string;
 
   @Column()

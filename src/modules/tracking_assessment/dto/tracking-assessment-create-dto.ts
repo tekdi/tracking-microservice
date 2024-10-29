@@ -35,15 +35,6 @@ export class CreateAssessmentTrackingDto {
 
     @ApiPropertyOptional({
         type: () => String,
-        description: "Batch Id",
-    })
-    @Expose()
-    @IsString()
-    @IsNotEmpty()
-    batchId: string;
-
-    @ApiPropertyOptional({
-        type: () => String,
         description: "Content values",
     })
     @Expose()

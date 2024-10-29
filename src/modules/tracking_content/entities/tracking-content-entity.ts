@@ -12,9 +12,6 @@ export class ContentTracking {
   courseId: string;
 
   @Column()
-  batchId: string;
-
-  @Column()
   contentId: string;
 
   @Column()
