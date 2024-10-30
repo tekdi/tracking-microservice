@@ -112,7 +112,6 @@ export class TrackingContentService {
         'contentTrackingId',
         'userId',
         'courseId',
-        'batchId',
         'contentId',
         'contentType',
         'contentMime',
@@ -152,11 +151,10 @@ export class TrackingContentService {
 
       //find contentTracking
       const result_content = await this.dataSource.query(
-        `SELECT "contentTrackingId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3 and "courseId"=$4 and "unitId"=$5`,
+        `SELECT "contentTrackingId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4`,
         [
           createContentTrackingDto?.userId,
           createContentTrackingDto?.contentId,
-          createContentTrackingDto?.batchId,
           createContentTrackingDto?.courseId,
           createContentTrackingDto?.unitId,
         ],
@@ -234,11 +232,10 @@ export class TrackingContentService {
     try {
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "contentTrackingId","userId","courseId","batchId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn","unitId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3 and "courseId"=$4 and "unitId"=$5`,
+        `SELECT "contentTrackingId","userId","courseId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn","unitId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4`,
         [
           searchFilter?.userId,
           searchFilter?.contentId,
-          searchFilter?.batchId,
           searchFilter?.courseId,
           searchFilter?.unitId,
         ],
@@ -315,7 +312,6 @@ export class TrackingContentService {
                   "contentTrackingId",
                   "userId",
                   "courseId",
-                  "batchId",
                   "contentId",
                   "contentType",
                   "contentMime",
@@ -323,7 +319,7 @@ export class TrackingContentService {
                   "lastAccessOn",
                   "updatedOn",
                   "unitId",
-                  ROW_NUMBER() OVER (PARTITION BY "userId", "batchId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
+                  ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
               FROM 
                   content_tracking
               WHERE 
@@ -331,13 +327,11 @@ export class TrackingContentService {
                   AND "courseId" IN (${courseId_text}) 
                   AND "unitId" IN (${unitId_text}) 
                   AND "contentId" IN (${contentId_text}) 
-                  AND "batchId" = $2
           )
           SELECT 
               "contentTrackingId",
               "userId",
               "courseId",
-              "batchId",
               "contentId",
               "contentType",
               "contentMime",
@@ -349,7 +343,7 @@ export class TrackingContentService {
               latest_content
           WHERE 
               row_num = 1;`,
-          [userId, searchFilter?.batchId],
+          [userId],
         );
         //find out details
         let output_result_details = [];
@@ -572,7 +566,6 @@ export class TrackingContentService {
         'userId',
         'courseId',
         'unitId',
-        'batchId',
         'contentId',
       ];
       const paginationKeys = ['pageSize', 'page'];
@@ -583,7 +576,6 @@ export class TrackingContentService {
         'userId',
         'courseId',
         'unitId',
-        'batchId',
         'contentId',
         'contentType',
         'contentMime',

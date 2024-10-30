@@ -112,7 +112,6 @@ export class TrackingAssessmentService {
         'assessmentTrackingId',
         'userId',
         'courseId',
-        'batchId',
         'contentId',
         'attemptId',
         'createdOn',
@@ -213,11 +212,10 @@ export class TrackingAssessmentService {
     try {
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId","userId","courseId","batchId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent","unitId" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "batchId"=$3 and "courseId"=$4 and "unitId"=$5`,
+        `SELECT "assessmentTrackingId","userId","courseId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent","unitId" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4`,
         [
           searchFilter?.userId,
           searchFilter?.contentId,
-          searchFilter?.batchId,
           searchFilter?.courseId,
           searchFilter?.unitId,
         ],
@@ -294,7 +292,6 @@ export class TrackingAssessmentService {
                   "assessmentTrackingId",
                   "userId",
                   "courseId",
-                  "batchId",
                   "contentId",
                   "attemptId",
                   "createdOn",
@@ -304,7 +301,7 @@ export class TrackingAssessmentService {
                   "updatedOn",
                   "timeSpent",
                   "unitId",
-                  ROW_NUMBER() OVER (PARTITION BY "userId", "batchId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
+                  ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
               FROM 
                   assessment_tracking
               WHERE 
@@ -312,13 +309,11 @@ export class TrackingAssessmentService {
                   AND "courseId" IN (${courseId_text}) 
                   AND "unitId" IN (${unitId_text}) 
                   AND "contentId" IN (${contentId_text}) 
-                  AND "batchId" = $2
           )
           SELECT 
               "assessmentTrackingId",
               "userId",
               "courseId",
-              "batchId",
               "contentId",
               "attemptId",
               "createdOn",
@@ -332,7 +327,7 @@ export class TrackingAssessmentService {
               latest_assessment
           WHERE 
               row_num = 1;`,
-          [userId, searchFilter?.batchId],
+          [userId],
         );
         for (let j = 0; j < result.length; j++) {
           let temp_result = result[j];
@@ -399,7 +394,6 @@ export class TrackingAssessmentService {
         'userId',
         'courseId',
         'unitId',
-        'batchId',
         'contentId',
       ];
       const paginationKeys = ['pageSize', 'page'];
@@ -409,7 +403,6 @@ export class TrackingAssessmentService {
         'assessmentTrackingId',
         'userId',
         'courseId',
-        'batchId',
         'contentId',
         'attemptId',
         'createdOn',

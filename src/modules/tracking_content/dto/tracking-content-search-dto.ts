@@ -47,16 +47,6 @@ export class setFilters {
 
   @ApiPropertyOptional({
     type: () => String,
-    description: "Batch Id",
-  })
-  @Expose()
-  @IsString()
-  @IsOptional()
-  @IsNotEmpty()
-  batchId: string;
-
-  @ApiPropertyOptional({
-    type: () => String,
     description: "Content values",
   })
   @Expose()
