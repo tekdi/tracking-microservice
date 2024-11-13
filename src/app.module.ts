@@ -5,7 +5,6 @@ import { DatabaseModule } from './common/database/database.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { MemoryStore } from 'cache-manager-memory-store';
 import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { TrackingAssessmentModule } from 'src/modules/tracking_assessment/tracking_assessment.module';
 import { TrackingContentModule } from 'src/modules/tracking_content/tracking_content.module';
 

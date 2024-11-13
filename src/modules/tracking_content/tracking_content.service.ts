@@ -17,6 +17,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { LoggerService } from 'src/common/logger/logger.service';
 
 @Injectable()
 export class TrackingContentService {
@@ -29,6 +30,7 @@ export class TrackingContentService {
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private dataSource: DataSource,
+    private loggerService: LoggerService,
   ) {
     this.ttl = this.configService.get('TTL');
   }
@@ -40,6 +42,12 @@ export class TrackingContentService {
   ) {
     const apiId = 'api.get.contentTrackingId';
     if (!isUUID(contentTrackingId)) {
+      this.loggerService.error(
+        'Please Enter Valid UUID',
+        'BAD_REQUEST',
+        apiId,
+        contentTrackingId,
+      );
       return APIResponse.error(
         response,
         apiId,
@@ -52,6 +60,11 @@ export class TrackingContentService {
       const ttl = this.ttl;
       const cachedData: any = await this.cacheService.get(contentTrackingId);
       if (cachedData) {
+        this.loggerService.log(
+          'Content data fetch successfully.',
+          apiId,
+          contentTrackingId,
+        );
         return APIResponse.success(
           response,
           apiId,
@@ -62,6 +75,12 @@ export class TrackingContentService {
       }
       const result = await this.findContent(contentTrackingId);
       if (!result) {
+        this.loggerService.error(
+          'No data found.',
+          'NOT_FOUND',
+          apiId,
+          contentTrackingId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -71,6 +90,11 @@ export class TrackingContentService {
         );
       }
       await this.cacheService.set(contentTrackingId, result, ttl);
+      this.loggerService.log(
+        'Content data fetch successfully.',
+        apiId,
+        contentTrackingId,
+      );
       return APIResponse.success(
         response,
         apiId,
@@ -80,6 +104,12 @@ export class TrackingContentService {
       );
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        errorMessage,
+        apiId,
+        contentTrackingId,
+      );
       return APIResponse.error(
         response,
         apiId,
@@ -126,6 +156,11 @@ export class TrackingContentService {
       );
 
       if (errors.length > 0) {
+        this.loggerService.error(
+          `Invalid Key ${errors.join(', ')}`,
+          'BAD_REQUEST',
+          apiId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -136,6 +171,11 @@ export class TrackingContentService {
       }
 
       if (!isUUID(createContentTrackingDto.userId)) {
+        this.loggerService.error(
+          'Please entire valid UUID.',
+          'BAD_REQUEST',
+          apiId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -205,6 +245,7 @@ export class TrackingContentService {
         //Error in CreateDetail!
         console.log(e);
       }
+      this.loggerService.log('Content submitted successfully.', apiId);
       return APIResponse.success(
         response,
         apiId,
@@ -214,6 +255,11 @@ export class TrackingContentService {
       );
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'Failed to fetch content data.',
+        'INTERNAL_SERVER_ERROR',
+        apiId,
+      );
       return APIResponse.error(
         response,
         apiId,
@@ -249,6 +295,7 @@ export class TrackingContentService {
         temp_result.details = result_details;
         output_result.push(temp_result);
       }
+      this.loggerService.log('success', 'searchContentTracking');
       return response.status(200).send({
         success: true,
         message: 'success',
@@ -256,6 +303,11 @@ export class TrackingContentService {
       });
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        errorMessage,
+        'searchContentTracking',
+      );
       return response.status(500).send({
         success: false,
         message: errorMessage,
@@ -380,6 +432,7 @@ export class TrackingContentService {
         output_result.push(temp_obj);
       }
 
+      this.loggerService.log('success', 'searchStatusContentTracking');
       return response.status(200).send({
         success: true,
         message: 'success',
@@ -387,6 +440,11 @@ export class TrackingContentService {
       });
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        errorMessage,
+        'searchStatusContentTracking',
+      );
       return response.status(500).send({
         success: false,
         message: errorMessage,
@@ -457,7 +515,7 @@ export class TrackingContentService {
         }
         userList.push({ userId: userId, course: courseList });
       }
-
+      this.loggerService.log('success', 'searchStatusCourseTracking');
       return response.status(200).send({
         success: true,
         message: 'success',
@@ -465,6 +523,11 @@ export class TrackingContentService {
       });
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        errorMessage,
+        'searchStatusCourseTracking',
+      );
       return response.status(500).send({
         success: false,
         message: errorMessage,
@@ -537,7 +600,7 @@ export class TrackingContentService {
         }
         userList.push({ userId: userId, unit: unitList });
       }
-
+      this.loggerService.log('success', 'searchStatusUnitTracking');
       return response.status(200).send({
         success: true,
         message: 'success',
@@ -545,6 +608,11 @@ export class TrackingContentService {
       });
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.log(
+        errorMessage,
+        errorMessage,
+        'searchStatusUnitTracking',
+      );
       return response.status(500).send({
         success: false,
         message: errorMessage,
@@ -598,6 +666,11 @@ export class TrackingContentService {
       if (filters && Object.keys(filters).length > 0) {
         const invalidKey = await this.invalidKeyCheck(filters, filterKeys);
         if (invalidKey.length > 0) {
+          this.loggerService.error(
+            `Invalid key: ${invalidKey}`,
+            'BAD_REQUEST',
+            apiId,
+          );
           return APIResponse.error(
             response,
             apiId,
@@ -609,6 +682,11 @@ export class TrackingContentService {
 
         Object.entries(filters).forEach(([key, value]) => {
           if (value === '') {
+            this.loggerService.error(
+              `Blank value for key '${key}'. Please provide a valid value.`,
+              'BAD_REQUEST',
+              apiId,
+            );
             return APIResponse.error(
               response,
               apiId,
@@ -627,6 +705,11 @@ export class TrackingContentService {
           paginationKeys,
         );
         if (invalidKey.length > 0) {
+          this.loggerService.error(
+            `Invalid key: ${invalidKey}`,
+            'BAD_REQUEST',
+            apiId,
+          );
           return APIResponse.error(
             response,
             apiId,
@@ -645,6 +728,11 @@ export class TrackingContentService {
       if (sort && Object.keys(sort).length > 0) {
         const invalidKey = await this.invalidKeyCheck(sort, sortKeys);
         if (invalidKey.length > 0) {
+          this.loggerService.error(
+            `Invalid key: ${invalidKey}`,
+            'BAD_REQUEST',
+            apiId,
+          );
           return APIResponse.error(
             response,
             apiId,
@@ -654,6 +742,11 @@ export class TrackingContentService {
           );
         } else {
           if (orderBy === '' || order === '') {
+            this.loggerService.error(
+              `Blank value for order or field. Please provide a valid value.`,
+              'BAD_REQUEST',
+              apiId,
+            );
             return APIResponse.error(
               response,
               apiId,
@@ -665,6 +758,11 @@ export class TrackingContentService {
 
           if (orderBy && order) {
             if (!orderValue.includes(order)) {
+              this.loggerService.error(
+                `Invalid sort order ${order}. Please use either 'asc' or 'desc'.`,
+                'BAD_REQUEST',
+                apiId,
+              );
               return APIResponse.error(
                 response,
                 apiId,
@@ -675,6 +773,11 @@ export class TrackingContentService {
             }
 
             if (!orderField.includes(orderBy)) {
+              this.loggerService.error(
+                `Invalid sort field "${orderBy}". Please use a valid sorting field.`,
+                'BAD_REQUEST',
+                apiId,
+              );
               return APIResponse.error(
                 response,
                 apiId,
@@ -689,6 +792,11 @@ export class TrackingContentService {
       }
 
       if (whereClause['userId'] && !isUUID(whereClause['userId'])) {
+        this.loggerService.error(
+          'Invalid User ID format. It must be a valid UUID.',
+          'BAD_REQUEST',
+          apiId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -702,6 +810,11 @@ export class TrackingContentService {
         whereClause['contentTrackingId'] &&
         !isUUID(whereClause['contentTrackingId'])
       ) {
+        this.loggerService.error(
+          'Invalid Content Tracking ID format. It must be a valid UUID.',
+          'BAD_REQUEST',
+          apiId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -720,6 +833,7 @@ export class TrackingContentService {
         },
       );
       if (result.length == 0) {
+        this.loggerService.error('No data found.', 'NOT_FOUND', apiId);
         return APIResponse.error(
           response,
           apiId,
@@ -728,6 +842,7 @@ export class TrackingContentService {
           HttpStatus.NOT_FOUND,
         );
       }
+      this.loggerService.log('Content data fetched successfully.', apiId);
       return APIResponse.success(
         response,
         apiId,
@@ -737,6 +852,7 @@ export class TrackingContentService {
       );
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(errorMessage, 'INTERNAL_SERVER_ERROR', apiId);
       return APIResponse.error(
         response,
         apiId,
@@ -789,6 +905,12 @@ export class TrackingContentService {
       });
 
       if (!getContentData) {
+        this.loggerService.error(
+          'Tracking Id not found.',
+          'NOT_FOUND',
+          apiId,
+          contentTrackingId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -806,6 +928,11 @@ export class TrackingContentService {
           contentTrackingId: contentTrackingId,
         });
       if (deleteContent['affected'] > 0) {
+        this.loggerService.log(
+          'Content data deleted successfully.',
+          apiId,
+          contentTrackingId,
+        );
         return APIResponse.success(
           response,
           apiId,
@@ -816,6 +943,12 @@ export class TrackingContentService {
       }
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        'INTERNAL_SERVER_ERROR',
+        apiId,
+        contentTrackingId,
+      );
       return APIResponse.error(
         response,
         apiId,

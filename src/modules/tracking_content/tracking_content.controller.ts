@@ -9,6 +9,7 @@ import {
   Body,
   Delete,
   UseInterceptors,
+  UseFilters,
 } from '@nestjs/common';
 import { Response } from 'express';
 import {
@@ -16,8 +17,6 @@ import {
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
-  ApiForbiddenResponse,
-  ApiHeader,
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -27,6 +26,7 @@ import { CreateContentTrackingDto } from './dto/tracking-content-create-dto';
 import { SearchContentTrackingDto } from './dto/tracking-content-search-dto';
 import { TrackingContentService } from './tracking_content.service';
 import { CacheInterceptor } from '@nestjs/cache-manager';
+import { AllExceptionsFilter } from 'src/common/utils/exception.filter';
 
 @Controller('content')
 @ApiTags('tracking-content')
@@ -36,6 +36,7 @@ export class TrackingContentController {
   ) {}
 
   //Get Content by Id
+  @UseFilters(new AllExceptionsFilter())
   @Get('read/:contentTrackingId')
   @ApiOkResponse({ description: 'Content details fetched successfully' })
   @ApiNotFoundResponse({ description: 'Content Not Found' })
@@ -55,6 +56,7 @@ export class TrackingContentController {
   }
 
   //Create Content
+  @UseFilters(new AllExceptionsFilter())
   @Post('create')
   @ApiCreatedResponse({
     description: 'Content has been created successfully.',
@@ -76,6 +78,7 @@ export class TrackingContentController {
   }
 
   // Content
+  @UseFilters(new AllExceptionsFilter())
   @Post('search')
   async searchContentTracking(
     @Req() request: Request,
@@ -90,6 +93,7 @@ export class TrackingContentController {
   }
 
   // Content
+  @UseFilters(new AllExceptionsFilter())
   @Post('search/status')
   async searchStatusContentTracking(
     @Req() request: Request,
@@ -104,6 +108,7 @@ export class TrackingContentController {
   }
 
   // Course
+  @UseFilters(new AllExceptionsFilter())
   @Post('course/status')
   async searchStatusCourseTracking(
     @Req() request: Request,
@@ -118,6 +123,7 @@ export class TrackingContentController {
   }
 
   // Unit
+  @UseFilters(new AllExceptionsFilter())
   @Post('unit/status')
   async searchStatusUnitTracking(
     @Req() request: Request,
@@ -132,6 +138,7 @@ export class TrackingContentController {
   }
 
   //Search Content
+  @UseFilters(new AllExceptionsFilter())
   @Post('/list')
   @ApiOkResponse({ description: 'Content data fetch successfully.' })
   @ApiBody({ type: SearchContentTrackingDto })
@@ -150,6 +157,7 @@ export class TrackingContentController {
   }
 
   //Delete Content
+  @UseFilters(new AllExceptionsFilter())
   @Delete('delete/:contentTrackingId')
   @ApiOkResponse({ description: 'Content tracking deleted successfully.' })
   @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
