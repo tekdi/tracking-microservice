@@ -4,6 +4,7 @@ import { TrackingAssessmentController } from './tracking_assessment.controller';
 import { AssessmentTracking } from 'src/modules/tracking_assessment/entities/tracking-assessment-entity';
 import { AssessmentTrackingScoreDetail } from 'src/modules/tracking_assessment/entities/tracking-assessment-score-details-entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { LoggerService } from 'src/common/logger/logger.service';
 
 @Module({
   imports: [
@@ -13,6 +14,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     ]),
   ],
   controllers: [TrackingAssessmentController],
-  providers: [TrackingAssessmentService],
+  providers: [TrackingAssessmentService, LoggerService],
 })
 export class TrackingAssessmentModule {}

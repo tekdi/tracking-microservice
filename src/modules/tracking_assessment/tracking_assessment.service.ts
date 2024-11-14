@@ -17,6 +17,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { LoggerService } from 'src/common/logger/logger.service';
 
 @Injectable()
 export class TrackingAssessmentService {
@@ -29,6 +30,7 @@ export class TrackingAssessmentService {
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private dataSource: DataSource,
+    private loggerService: LoggerService,
   ) {
     this.ttl = this.configService.get('TTL');
   }
@@ -40,6 +42,12 @@ export class TrackingAssessmentService {
   ) {
     const apiId = 'api.get.assessmentTrackingId';
     if (!isUUID(assessmentTrackingId)) {
+      this.loggerService.error(
+        'Please Enter Valid UUID',
+        'BAD_REQUEST',
+        apiId,
+        assessmentTrackingId,
+      );
       return APIResponse.error(
         response,
         apiId,
@@ -52,6 +60,11 @@ export class TrackingAssessmentService {
       const ttl = this.ttl;
       const cachedData: any = await this.cacheService.get(assessmentTrackingId);
       if (cachedData) {
+        this.loggerService.log(
+          'Assessment data fetch successfully.',
+          apiId,
+          assessmentTrackingId,
+        );
         return APIResponse.success(
           response,
           apiId,
@@ -62,6 +75,12 @@ export class TrackingAssessmentService {
       }
       const result = await this.findAssessment(assessmentTrackingId);
       if (!result) {
+        this.loggerService.error(
+          'No data found.',
+          'NOT_FOUND',
+          apiId,
+          assessmentTrackingId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -71,6 +90,11 @@ export class TrackingAssessmentService {
         );
       }
       await this.cacheService.set(assessmentTrackingId, result, ttl);
+      this.loggerService.log(
+        'Assessment data fetch successfully.',
+        apiId,
+        assessmentTrackingId,
+      );
       return APIResponse.success(
         response,
         apiId,
@@ -80,6 +104,12 @@ export class TrackingAssessmentService {
       );
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        'Something went wrong in assessment creation',
+        errorMessage,
+        apiId,
+        assessmentTrackingId,
+      );
       return APIResponse.error(
         response,
         apiId,
@@ -128,6 +158,12 @@ export class TrackingAssessmentService {
       );
 
       if (errors.length > 0) {
+        this.loggerService.error(
+          `Invalid Key ${errors.join(', ')}`,
+          JSON.stringify('Invalid Key.'),
+          apiId,
+          createAssessmentTrackingDto.userId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -138,6 +174,12 @@ export class TrackingAssessmentService {
       }
 
       if (!isUUID(createAssessmentTrackingDto.userId)) {
+        this.loggerService.error(
+          'Please entire valid UUID.',
+          'BAD_REQUEST',
+          apiId,
+          createAssessmentTrackingDto.userId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -185,6 +227,11 @@ export class TrackingAssessmentService {
         //Error in CreateScoreDetail!
         console.log(e);
       }
+      this.loggerService.log(
+        'Assessment submitted successfully.',
+        apiId,
+        createAssessmentTrackingDto.userId,
+      );
       return APIResponse.success(
         response,
         apiId,
@@ -193,6 +240,12 @@ export class TrackingAssessmentService {
         'Assessment submitted successfully.',
       );
     } catch (e) {
+      this.loggerService.error(
+        'Failed to fetch assessment data.',
+        'INTERNAL_SERVER_ERROR',
+        apiId,
+        createAssessmentTrackingDto.userId,
+      );
       const errorMessage = e.message || 'Internal Server Error';
       return APIResponse.error(
         response,
@@ -229,6 +282,7 @@ export class TrackingAssessmentService {
         temp_result.score_details = result_score;
         output_result.push(temp_result);
       }
+      this.loggerService.log('success', 'searchAssessmentTracking');
       return response.status(200).send({
         success: true,
         message: 'success',
@@ -236,6 +290,11 @@ export class TrackingAssessmentService {
       });
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        errorMessage,
+        'searchAssessmentTracking',
+      );
       return response.status(500).send({
         success: false,
         message: errorMessage,
@@ -366,6 +425,7 @@ export class TrackingAssessmentService {
         output_result.push(temp_obj);
       }
 
+      this.loggerService.log('success', 'searchStatusAssessmentTracking');
       return response.status(200).send({
         success: true,
         message: 'success',
@@ -373,6 +433,12 @@ export class TrackingAssessmentService {
       });
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        errorMessage,
+        'searchStatusAssessmentTracking',
+      );
+
       return response.status(500).send({
         success: false,
         message: errorMessage,
@@ -427,6 +493,11 @@ export class TrackingAssessmentService {
       if (filters && Object.keys(filters).length > 0) {
         const invalidKey = await this.invalidKeyCheck(filters, filterKeys);
         if (invalidKey.length > 0) {
+          this.loggerService.error(
+            `Invalid key: ${invalidKey}`,
+            'BAD_REQUEST',
+            apiId,
+          );
           return APIResponse.error(
             response,
             apiId,
@@ -438,6 +509,11 @@ export class TrackingAssessmentService {
 
         Object.entries(filters).forEach(([key, value]) => {
           if (value === '') {
+            this.loggerService.error(
+              `Blank value for key '${key}'. Please provide a valid value.`,
+              'BAD_REQUEST',
+              apiId,
+            );
             return APIResponse.error(
               response,
               apiId,
@@ -456,6 +532,11 @@ export class TrackingAssessmentService {
           paginationKeys,
         );
         if (invalidKey.length > 0) {
+          this.loggerService.error(
+            `Invalid key: ${invalidKey}`,
+            'BAD_REQUEST',
+            apiId,
+          );
           return APIResponse.error(
             response,
             apiId,
@@ -474,6 +555,11 @@ export class TrackingAssessmentService {
       if (sort && Object.keys(sort).length > 0) {
         const invalidKey = await this.invalidKeyCheck(sort, sortKeys);
         if (invalidKey.length > 0) {
+          this.loggerService.error(
+            `Invalid key: ${invalidKey}`,
+            'BAD_REQUEST',
+            apiId,
+          );
           return APIResponse.error(
             response,
             apiId,
@@ -483,6 +569,11 @@ export class TrackingAssessmentService {
           );
         } else {
           if (orderBy === '' || order === '') {
+            this.loggerService.error(
+              `Blank value for order or field. Please provide a valid value.`,
+              'BAD_REQUEST',
+              apiId,
+            );
             return APIResponse.error(
               response,
               apiId,
@@ -494,6 +585,11 @@ export class TrackingAssessmentService {
 
           if (orderBy && order) {
             if (!orderValue.includes(order)) {
+              this.loggerService.error(
+                `Invalid sort order ${order}. Please use either 'asc' or 'desc'.`,
+                'BAD_REQUEST',
+                apiId,
+              );
               return APIResponse.error(
                 response,
                 apiId,
@@ -504,6 +600,11 @@ export class TrackingAssessmentService {
             }
 
             if (!orderField.includes(orderBy)) {
+              this.loggerService.error(
+                `Invalid sort field "${orderBy}". Please use a valid sorting field.`,
+                'BAD_REQUEST',
+                apiId,
+              );
               return APIResponse.error(
                 response,
                 apiId,
@@ -518,6 +619,11 @@ export class TrackingAssessmentService {
       }
 
       if (whereClause['userId'] && !isUUID(whereClause['userId'])) {
+        this.loggerService.error(
+          'Invalid User ID format. It must be a valid UUID.',
+          'BAD_REQUEST',
+          apiId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -531,6 +637,11 @@ export class TrackingAssessmentService {
         whereClause['assessmentTrackingId'] &&
         !isUUID(whereClause['assessmentTrackingId'])
       ) {
+        this.loggerService.error(
+          'Invalid Assessment Tracking ID format. It must be a valid UUID.',
+          'BAD_REQUEST',
+          apiId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -548,6 +659,7 @@ export class TrackingAssessmentService {
           take: limit,
         });
       if (result.length == 0) {
+        this.loggerService.error('No data found.', 'NOT_FOUND', apiId);
         return APIResponse.error(
           response,
           apiId,
@@ -556,6 +668,7 @@ export class TrackingAssessmentService {
           HttpStatus.NOT_FOUND,
         );
       }
+      this.loggerService.log('Assessment data fetched successfully.', apiId);
       return APIResponse.success(
         response,
         apiId,
@@ -565,6 +678,7 @@ export class TrackingAssessmentService {
       );
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(errorMessage, 'INTERNAL_SERVER_ERROR', apiId);
       return APIResponse.error(
         response,
         apiId,
@@ -602,6 +716,12 @@ export class TrackingAssessmentService {
     const apiId = 'api.delete.assessment';
     try {
       if (!isUUID(assessmentTrackingId)) {
+        this.loggerService.error(
+          'Please entire valid UUID.',
+          'BAD_REQUEST',
+          apiId,
+          assessmentTrackingId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -619,6 +739,12 @@ export class TrackingAssessmentService {
       );
 
       if (!getAssessmentData) {
+        this.loggerService.error(
+          'Tracking Id not found.',
+          'NOT_FOUND',
+          apiId,
+          assessmentTrackingId,
+        );
         return APIResponse.error(
           response,
           apiId,
@@ -637,6 +763,11 @@ export class TrackingAssessmentService {
           assessmentTrackingId: assessmentTrackingId,
         });
       if (deleteAssessment['affected'] > 0) {
+        this.loggerService.log(
+          'Assessment data deleted successfully.',
+          apiId,
+          assessmentTrackingId,
+        );
         return APIResponse.success(
           response,
           apiId,
@@ -647,6 +778,12 @@ export class TrackingAssessmentService {
       }
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        'INTERNAL_SERVER_ERROR',
+        apiId,
+        assessmentTrackingId,
+      );
       return APIResponse.error(
         response,
         apiId,
