@@ -174,4 +174,24 @@ export class TrackingContentController {
       response,
     );
   }
+
+  //Course In Progress
+  @UseFilters(new AllExceptionsFilter())
+  @Post('course/inprogress')
+  @ApiOkResponse({ description: 'Course In Progress List fetch successfully.' })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
+  @ApiBadRequestResponse({ description: 'Bad Request.' })
+  @ApiNotFoundResponse({ description: 'User Not Found.' })
+  async courseInProgress(
+    @Req() request: Request,
+    @Body() searchFilter: any,
+    @Res() response: Response,
+  ) {
+    return this.trackingContentService.courseInProgress(
+      request,
+      searchFilter,
+      response,
+    );
+  }
+
 }
