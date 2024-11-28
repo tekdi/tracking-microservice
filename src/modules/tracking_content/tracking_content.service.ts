@@ -958,4 +958,61 @@ export class TrackingContentService {
       );
     }
   }
+
+  public async courseInProgress(
+    request: any,
+    searchFilter: any,
+    response: Response,
+  ) {
+    try {
+      //userId
+      let userIdArray = searchFilter?.userId;
+      let userList = [];
+      for (let i = 0; i < userIdArray.length; i++) {
+        let userId = userIdArray[i];
+        //get course id
+        const result = await this.dataSource.query(
+          `SELECT ct."courseId"
+          FROM public.content_tracking ct
+          JOIN public.content_tracking_details ctd
+            ON ct."contentTrackingId" = ctd."contentTrackingId"
+          WHERE ct."userId"=$1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM public.content_tracking_details ctd2
+              WHERE ctd2."contentTrackingId" = ct."contentTrackingId"
+                AND ctd2."eid" = 'END'
+            )
+          ORDER BY ctd."updatedOn" DESC
+          LIMIT 10;`,
+          [userId],
+        );
+        let seen = new Set();
+        let uniqueCourseIds = [];
+        if (result && result.length > 0) {
+          result.forEach((item) => {
+            if (!seen.has(item.courseId)) {
+              seen.add(item.courseId);
+              uniqueCourseIds.push(item);
+            }
+          });
+        }
+        userList.push({ userId: userId, courseIdList: uniqueCourseIds });
+      }
+      this.loggerService.log('success', 'courseinprogress');
+      return response.status(200).send({
+        success: true,
+        message: 'success',
+        data: userList,
+      });
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.log(errorMessage, errorMessage, 'courseinprogress');
+      return response.status(500).send({
+        success: false,
+        message: errorMessage,
+        data: {},
+      });
+    }
+  }
 }
