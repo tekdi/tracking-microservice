@@ -176,8 +176,8 @@ export class TrackingContentController {
   }
 
   //Course In Progress
-  @UseFilters(new AllExceptionsFilter())
-  @Post('course/inprogress')
+  //@UseFilters(new AllExceptionsFilter())
+  //@Post('course/inprogress')
   @ApiOkResponse({ description: 'Course In Progress List fetch successfully.' })
   @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
   @ApiBadRequestResponse({ description: 'Bad Request.' })
@@ -193,5 +193,4 @@ export class TrackingContentController {
       response,
     );
   }
-
 }
