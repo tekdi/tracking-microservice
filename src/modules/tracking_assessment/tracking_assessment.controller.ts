@@ -28,7 +28,7 @@ import { CreateAssessmentTrackingDto } from './dto/tracking-assessment-create-dt
 import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dto';
 import { TrackingAssessmentService } from './tracking_assessment.service';
 import { CacheInterceptor } from '@nestjs/cache-manager';
-import { AllExceptionsFilter } from 'src/common/utils/exception.filter';
+//import { AllExceptionsFilter } from 'src/common/utils/exception.filter';
 
 @Controller('assessment')
 @ApiTags('tracking')
@@ -38,7 +38,7 @@ export class TrackingAssessmentController {
   ) {}
 
   //Get Assessment by Id
-  @UseFilters(new AllExceptionsFilter())
+  //@UseFilters(new AllExceptionsFilter())
   @Get('read/:assessmentTrackingId')
   @ApiOkResponse({ description: 'Assessment details fetched successfully' })
   @ApiNotFoundResponse({ description: 'Assessment Not Found' })
@@ -58,7 +58,7 @@ export class TrackingAssessmentController {
   }
 
   //Create Assessment
-  @UseFilters(new AllExceptionsFilter())
+  //@UseFilters(new AllExceptionsFilter())
   @Post('create')
   @ApiCreatedResponse({
     description: 'Assessment has been created successfully.',
@@ -80,7 +80,7 @@ export class TrackingAssessmentController {
   }
 
   // Assessment
-  @UseFilters(new AllExceptionsFilter())
+  //@UseFilters(new AllExceptionsFilter())
   @Post('search')
   async searchAssessmentTracking(
     @Req() request: Request,
@@ -95,7 +95,7 @@ export class TrackingAssessmentController {
   }
 
   // Assessment
-  @UseFilters(new AllExceptionsFilter())
+  //@UseFilters(new AllExceptionsFilter())
   @Post('search/status')
   async searchStatusAssessmentTracking(
     @Req() request: Request,
@@ -110,7 +110,7 @@ export class TrackingAssessmentController {
   }
 
   //Search Assessment
-  @UseFilters(new AllExceptionsFilter())
+  //@UseFilters(new AllExceptionsFilter())
   @Post('/list')
   @ApiOkResponse({ description: 'Assessment data fetch successfully.' })
   @ApiBody({ type: SearchAssessmentTrackingDto })
@@ -129,7 +129,7 @@ export class TrackingAssessmentController {
   }
 
   //Delete Assessment
-  @UseFilters(new AllExceptionsFilter())
+  // @UseFilters(new AllExceptionsFilter())
   @Delete('delete/:assessmentTrackingId')
   @ApiOkResponse({ description: 'Assessment tracking deleted successfully.' })
   @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
