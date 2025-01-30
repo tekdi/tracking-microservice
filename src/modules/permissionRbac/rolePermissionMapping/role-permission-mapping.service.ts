@@ -14,6 +14,19 @@ export class RolePermissionService {
   ) {}
 
   //getPermission for middleware
+  public async getPermissionForMiddleware(
+    roleTitle: string,
+    apiPath: string,
+  ): Promise<any> {
+    try {
+      let result = await this.rolePermissionRepository.find({
+        where: { roleTitle: roleTitle, apiPath: apiPath },
+      });
+      return result;
+    } catch (error) {
+      return error;
+    }
+  }
   public async getPermission(
     roleTitle: string,
     apiPath: string,
