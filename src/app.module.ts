@@ -7,6 +7,8 @@ import { MemoryStore } from 'cache-manager-memory-store';
 import { ConfigModule } from '@nestjs/config';
 import { TrackingAssessmentModule } from 'src/modules/tracking_assessment/tracking_assessment.module';
 import { TrackingContentModule } from 'src/modules/tracking_content/tracking_content.module';
+import { CertificateModule } from './modules/certificate/certificate.module';
+import { UserCertificateModule } from './modules/user_certificate/user_certificate.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { TrackingContentModule } from 'src/modules/tracking_content/tracking_con
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
     CacheModule.register({ isGlobal: true, store: MemoryStore }),
+    CertificateModule,
+    UserCertificateModule,
   ],
   controllers: [AppController],
   providers: [AppService],
