@@ -40,7 +40,7 @@ export class UserCertificateService {
       let data = new UserCourseCertificate();
       data.userId = createUserCertificateDto.userId;
       data.courseId = createUserCertificateDto.courseId;
-      data.tenantId = createUserCertificateDto.tenantId;
+      data.tenantId = tenantId;
       data.status = 'enrolled';
 
       //check if record with tenantId, userId and courseId exist
@@ -102,7 +102,7 @@ export class UserCertificateService {
           where: {
             userId: data.userId,
             courseId: data.courseId,
-            tenantId: data.tenantId,
+            tenantId: tenantId,
           },
         });
       if (userCertificate) {
