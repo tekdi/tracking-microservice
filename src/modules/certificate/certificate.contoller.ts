@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Res, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Res,
+  UseGuards,
+  Req,
+  StreamableFile,
+} from '@nestjs/common';
 import {
   ApiInternalServerErrorResponse,
   ApiBadRequestResponse,
@@ -85,6 +93,22 @@ export class CertificateController {
     return await this.certificateService.renderCredentials(
       renderCertificateDto.credentialId,
       renderCertificateDto.templateId,
+      response,
+    );
+  }
+  // API to render certificate
+  @ApiOkResponse({ description: 'Certificate rendered successfully.' })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
+  @ApiBadRequestResponse({ description: 'Bad Request.' })
+  @Post('render-PDF')
+  async renderCertificatePDFFromHTML(
+    @Body() renderCertificateDto: any,
+    @Res({ passthrough: true }) response,
+  ): Promise<string | StreamableFile> {
+    response.header('Content-Type', 'application/pdf');
+    return await this.certificateService.renderPDFFromHTML(
+      renderCertificateDto.credentialId,
+      renderCertificateDto.htmlTemplate,
       response,
     );
   }
