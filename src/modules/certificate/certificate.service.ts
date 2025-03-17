@@ -7,7 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { UserCourseCertificate } from './entities/user_course_certificate';
 import { Repository } from 'typeorm';
 import { Response } from 'express';
-import * as wkhtmltopdf from 'wkhtmltopdf';
+const puppeteer = require('puppeteer');
 
 @Injectable()
 export class CertificateService {
@@ -312,19 +312,46 @@ export class CertificateService {
   }
   async renderPDFFromHTML(
     credentialId: string,
-    htmlTemplate: string,
+    templateId: string,
     res: Response,
   ): Promise<StreamableFile> {
     const apiId = 'api.get.Certificate';
+
     try {
-      return new StreamableFile(
-        await wkhtmltopdf(htmlTemplate, {
-          pageSize: 'A4',
-          disableExternalLinks: true,
-          disableInternalLinks: true,
-          disableJavascript: true,
-        }),
+      let url =
+        this.configService.get('RC_CREDENTIALS_API_BASE_URL') +
+        '/credentials/' +
+        credentialId;
+      const response = await axios.get(url, {
+        headers: {
+          templateid: templateId,
+          Accept: 'text/html',
+        },
+      });
+
+      // Launch Puppeteer
+      const browser = await puppeteer.launch();
+      const page = await browser.newPage();
+
+      // Set HTML content
+      await page.setContent(response.data, { waitUntil: 'load' });
+
+      // Generate PDF
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
+      });
+
+      await browser.close();
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="generated.pdf"',
       );
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.end(pdfBuffer);
     } catch (error) {
       this.loggerService.error('Error fetching credentials:', error);
       return APIResponse.error(
