@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, StreamableFile } from '@nestjs/common';
 import axios from 'axios';
 import APIResponse from 'src/common/utils/response';
 import { LoggerService } from 'src/common/logger/logger.service';
@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { UserCourseCertificate } from './entities/user_course_certificate';
 import { Repository } from 'typeorm';
 import { Response } from 'express';
+import * as wkhtmltopdf from 'wkhtmltopdf';
 
 @Injectable()
 export class CertificateService {
@@ -297,6 +298,32 @@ export class CertificateService {
         response.data,
         HttpStatus.OK,
         'Credential rendered successfully',
+      );
+    } catch (error) {
+      this.loggerService.error('Error fetching credentials:', error);
+      return APIResponse.error(
+        res,
+        apiId,
+        'Error fetching credentials',
+        'INTERNAL_SERVER_ERROR',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async renderPDFFromHTML(
+    credentialId: string,
+    htmlTemplate: string,
+    res: Response,
+  ): Promise<StreamableFile> {
+    const apiId = 'api.get.Certificate';
+    try {
+      return new StreamableFile(
+        await wkhtmltopdf(htmlTemplate, {
+          pageSize: 'A4',
+          disableExternalLinks: true,
+          disableInternalLinks: true,
+          disableJavascript: true,
+        }),
       );
     } catch (error) {
       this.loggerService.error('Error fetching credentials:', error);
