@@ -105,10 +105,9 @@ export class CertificateController {
     @Body() renderCertificateDto: any,
     @Res({ passthrough: true }) response,
   ): Promise<string | StreamableFile> {
-    response.header('Content-Type', 'application/pdf');
     return await this.certificateService.renderPDFFromHTML(
       renderCertificateDto.credentialId,
-      renderCertificateDto.htmlTemplate,
+      renderCertificateDto.templateId,
       response,
     );
   }
