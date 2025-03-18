@@ -16,6 +16,7 @@ import {
 import { Response } from 'express';
 import { CertificateService } from './certificate.service';
 import { IssueCredentialDto } from './dto/issue-certificate-dto';
+import { RenderCertificateDTO } from './dto/render-certificate-dto';
 
 @Controller('certificate')
 export class CertificateController {
@@ -102,7 +103,7 @@ export class CertificateController {
   @ApiBadRequestResponse({ description: 'Bad Request.' })
   @Post('render-PDF')
   async renderCertificatePDFFromHTML(
-    @Body() renderCertificateDto: any,
+    @Body() renderCertificateDto: RenderCertificateDTO,
     @Res({ passthrough: true }) response,
   ): Promise<string | StreamableFile> {
     return await this.certificateService.renderPDFFromHTML(
