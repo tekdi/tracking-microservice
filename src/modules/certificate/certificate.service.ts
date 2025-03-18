@@ -7,7 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { UserCourseCertificate } from './entities/user_course_certificate';
 import { Repository } from 'typeorm';
 import { Response } from 'express';
-const puppeteer = require('puppeteer');
+import puppeteer from 'puppeteer';
 
 @Injectable()
 export class CertificateService {
@@ -353,6 +353,7 @@ export class CertificateService {
       res.setHeader('Content-Length', pdfBuffer.length);
       res.end(pdfBuffer);
     } catch (error) {
+      console.log('error: ', error);
       this.loggerService.error('Error fetching credentials:', error);
       return APIResponse.error(
         res,
