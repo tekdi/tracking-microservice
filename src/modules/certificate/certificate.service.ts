@@ -330,7 +330,17 @@ export class CertificateService {
       });
 
       // Launch Puppeteer
-      const browser = await puppeteer.launch();
+      const browser = await puppeteer.launch({
+        headless: true, // Use headless mode
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-gpu',
+          '--disable-dev-shm-usage',
+          '--disable-software-rasterizer',
+        ],
+      });
+
       const page = await browser.newPage();
 
       // Set HTML content
