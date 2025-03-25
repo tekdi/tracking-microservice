@@ -8,6 +8,7 @@ import { CreateCertificateDto } from './dto/create-user-certificate-dto';
 import APIResponse from 'src/common/utils/response';
 import { LoggerService } from 'src/common/logger/logger.service';
 import { ConfigService } from '@nestjs/config';
+import { CreateUserCourseCertificateDto } from './dto/create-user-course-certificate.dto';
 const axios = require('axios');
 
 @Injectable()
@@ -256,6 +257,64 @@ export class UserCertificateService {
         'Error while fetching user status for courses',
         'INTERNAL_SERVER_ERROR',
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  //import user
+  async importUserDataForCertificate(
+    createUserCertificateDto: CreateUserCourseCertificateDto,
+    response: Response,
+    request: Request,
+  ) {
+    let apiId = 'api.import.userCertificate';
+    const tenantId = request.headers['tenantid'];
+    if (!tenantId) {
+      return APIResponse.error(
+        response,
+        apiId,
+        'tenantId is required in the header',
+        'BAD_REQUEST',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    try {
+      //check if record with tenantId, userId and courseId exist
+      const userCertificate =
+        await this.userCourseCertificateRepository.findOne({
+          where: {
+            userId: createUserCertificateDto.userId,
+            courseId: createUserCertificateDto.courseId,
+            tenantId: createUserCertificateDto.tenantId,
+          },
+        });
+      if (userCertificate) {
+        return APIResponse.error(
+          response,
+          apiId,
+          'User already exists for course',
+          'User already exists for course',
+          HttpStatus.OK,
+        );
+      }
+      const result = await this.userCourseCertificateRepository.save(
+        createUserCertificateDto,
+      );
+
+      return APIResponse.success(
+        response,
+        apiId,
+        result,
+        HttpStatus.OK,
+        'User added for course successfully',
+      );
+    } catch (error) {
+      this.loggerService.error('Error while adding user for the course', error);
+      return APIResponse.error(
+        response,
+        apiId,
+        'Error creating user certificate',
+        'BAD_REQUEST',
+        HttpStatus.BAD_REQUEST,
       );
     }
   }
