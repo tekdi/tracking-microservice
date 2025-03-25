@@ -285,6 +285,19 @@
                     "packageName": "shiksha-tracking"
                 }
             ]
+        },
+        {
+            "sourceRoute": "/interface/v1/tracking/user_certificate/import/user",
+            "type": "POST",
+            "priority": "MUST_HAVE",
+            "inSequence": false,
+            "orchestrated": false,
+            "targetPackages": [
+                {
+                    "basePackageName": "tracking",
+                    "packageName": "shiksha-tracking"
+                }
+            ]
         }
 
     ]

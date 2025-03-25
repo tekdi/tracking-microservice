@@ -42,4 +42,22 @@ export class UserCourseCertificate {
     nullable: false,
   })
   updatedOn: Date;
+
+  @Column({ type: 'text', nullable: true })
+  createdBy: string;
+
+  @Column({ type: 'timestamptz', nullable: true }) // TIMESTAMP WITH TIME ZONE for completedOn
+  completedOn: Date;
+
+  @Column({ type: 'integer', nullable: true })
+  completionPercentage: number;
+
+  @Column({ type: 'text', nullable: true })
+  lastReadContentId: string;
+
+  @Column({ type: 'integer', nullable: true })
+  lastReadContentStatus: number;
+
+  @Column({ type: 'integer', nullable: true })
+  progress: number;
 }

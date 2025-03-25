@@ -7,6 +7,7 @@ import {
 import { Response } from 'express';
 import { UserCertificateService } from './user_certificate.service..js';
 import { CreateCertificateDto } from './dto/create-user-certificate-dto.js';
+import { CreateUserCourseCertificateDto } from './dto/create-user-course-certificate.dto.js';
 
 @Controller('user_certificate')
 export class UserCertificateController {
@@ -76,6 +77,22 @@ export class UserCertificateController {
   ) {
     return this.userCertificateService.searchUsersCourses(
       searchObj,
+      response,
+      request,
+    );
+  }
+  //import user importUserDataForCertificate
+  @ApiOkResponse({ description: 'User added for course successfully' })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
+  @ApiBadRequestResponse({ description: 'Bad Request.' })
+  @Post('import/user')
+  async importUserDataForCertificate(
+    @Body() createUserCertificateDto: CreateUserCourseCertificateDto,
+    @Res() response: Response,
+    @Req() request: Request,
+  ) {
+    return this.userCertificateService.importUserDataForCertificate(
+      createUserCertificateDto,
       response,
       request,
     );
