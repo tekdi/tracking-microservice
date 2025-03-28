@@ -9,6 +9,7 @@ import { TrackingAssessmentModule } from 'src/modules/tracking_assessment/tracki
 import { TrackingContentModule } from 'src/modules/tracking_content/tracking_content.module';
 import { CertificateModule } from './modules/certificate/certificate.module';
 import { UserCertificateModule } from './modules/user_certificate/user_certificate.module';
+import { TelemetryModule } from './modules/telemtry/telemetry.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { UserCertificateModule } from './modules/user_certificate/user_certifica
     CacheModule.register({ isGlobal: true, store: MemoryStore }),
     CertificateModule,
     UserCertificateModule,
+    TelemetryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
