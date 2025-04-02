@@ -298,6 +298,19 @@
                     "packageName": "shiksha-tracking"
                 }
             ]
+        },
+        {
+            "sourceRoute": "/interface/v1/tracking/telemetry",
+            "type": "POST",
+            "priority": "MUST_HAVE",
+            "inSequence": false,
+            "orchestrated": false,
+            "targetPackages": [
+                {
+                    "basePackageName": "tracking",
+                    "packageName": "shiksha-tracking"
+                }
+            ]
         }
 
     ]
