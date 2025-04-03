@@ -194,7 +194,7 @@ export class CertificateService {
 
       const url =
         this.configService.get('RC_CREDENTIALS_API_BASE_URL') +
-        'credentials/issue';
+        '/credentials/issue';
       this.loggerService.log('url: ', url);
       const credetialObj = {
         credential: {
