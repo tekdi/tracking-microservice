@@ -43,6 +43,8 @@ export class UserCertificateService {
       data.courseId = createUserCertificateDto.courseId;
       data.tenantId = tenantId;
       data.status = 'enrolled';
+      data.createdOn = new Date();
+      data.updatedOn = new Date();
 
       //check if record with tenantId, userId and courseId exist
       const userCertificate =
@@ -110,6 +112,7 @@ export class UserCertificateService {
         userCertificate.certificateId = data.certificateId;
         userCertificate.issuedOn = data.issuedOn;
         userCertificate.status = 'completed';
+        userCertificate.updatedOn = new Date();
         let updateResult =
           await this.userCourseCertificateRepository.save(userCertificate);
         if (updateResult) {
