@@ -17,8 +17,10 @@ import { Response } from 'express';
 import { CertificateService } from './certificate.service';
 import { IssueCredentialDto } from './dto/issue-certificate-dto';
 import { RenderCertificateDTO } from './dto/render-certificate-dto';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 
 @Controller('certificate')
+@UseGuards(JwtAuthGuard)
 export class CertificateController {
   constructor(private readonly certificateService: CertificateService) {}
   // API to generate DID

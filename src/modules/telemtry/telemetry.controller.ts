@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Res } from '@nestjs/common';
+import { Controller, Post, Body, Req, Res, UseGuards } from '@nestjs/common';
 import { TelemetryService } from './telemetry.service';
 import {
   ApiOkResponse,
@@ -6,8 +6,10 @@ import {
   ApiBadRequestResponse,
 } from '@nestjs/swagger';
 import { Telemetry } from './entities/telemetry';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 
 @Controller('telemetry')
+@UseGuards(JwtAuthGuard)
 export class TelemetryController {
   constructor(private readonly telemetryService: TelemetryService) {}
 
