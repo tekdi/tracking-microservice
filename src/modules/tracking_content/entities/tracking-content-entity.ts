@@ -5,7 +5,7 @@ export class ContentTracking {
   @PrimaryGeneratedColumn('uuid')
   contentTrackingId: string;
 
-  @Column('uuid')
+  @Column({ type: 'character varying', nullable: true })
   userId: string;
 
   @Column()

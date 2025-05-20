@@ -11,7 +11,7 @@ export class UserCourseCertificate {
   @PrimaryGeneratedColumn('uuid')
   usercertificateId: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'character varying', nullable: false })
   userId: string;
 
   @Column()

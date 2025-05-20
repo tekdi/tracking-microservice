@@ -8,7 +8,7 @@ export class ContentTrackingDetail {
   @Column('uuid')
   contentTrackingId: string;
 
-  @Column('uuid')
+  @Column({ type: 'character varying', nullable: false })
   userId: string;
 
   @Column()
