@@ -8,7 +8,7 @@ import { Response } from 'express';
 import { UserCertificateService } from './user_certificate.service..js';
 import { CreateCertificateDto } from './dto/create-user-certificate-dto.js';
 import { CreateUserCourseCertificateDto } from './dto/create-user-course-certificate.dto.js';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard.ts';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 
 @Controller('user_certificate')
 @UseGuards(JwtAuthGuard)
