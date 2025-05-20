@@ -5,7 +5,7 @@ export class AssessmentTrackingScoreDetail {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'character varying', nullable: false })
+  @Column({ type: 'character varying', nullable: true })
   userId: string;
 
   @Column('uuid')
