@@ -90,6 +90,9 @@ export class UserCertificateService {
   async updateUserStatusForCourse(data, response, request: Request) {
     let apiId = 'api.update.courseStatus';
     const tenantId = request.headers['tenantid'];
+    if (!data.status) {
+      data.status = 'completed';
+    }
     if (!tenantId) {
       return APIResponse.error(
         response,
@@ -111,20 +114,20 @@ export class UserCertificateService {
       if (userCertificate) {
         userCertificate.certificateId = data.certificateId;
         userCertificate.issuedOn = data.issuedOn;
-        userCertificate.status = 'completed';
+        userCertificate.status = data.status;
         userCertificate.updatedOn = new Date();
         let updateResult =
           await this.userCourseCertificateRepository.save(userCertificate);
         if (updateResult) {
           this.loggerService.log(
-            'User status for course successfully updated to completed.',
+            'User status for course successfully updated to ' + data.status,
           );
           return APIResponse.success(
             response,
             apiId,
             updateResult,
             HttpStatus.OK,
-            'User status for course successfully updated to completed.',
+            'User status for course successfully updated to ' + data.status,
           );
         }
       } else {
@@ -236,7 +239,7 @@ export class UserCertificateService {
         }
       });
       const count = await queryBuilder.getCount();
-      queryBuilder.limit(searchObj.limit).offset(searchObj.offset);
+      //queryBuilder.limit(searchObj.limit).offset(searchObj.offset);
       const result = await queryBuilder.getMany();
       this.loggerService.log('Users status for courses fetched successfully');
       return APIResponse.success(
