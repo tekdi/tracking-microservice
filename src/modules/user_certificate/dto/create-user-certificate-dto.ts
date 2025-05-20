@@ -11,7 +11,8 @@ export class CreateCertificateDto {
   @IsUUID()
   tenantId: string;
 
-  @IsUUID()
+  @IsString()
+  @IsNotEmpty()
   userId: string;
 
   @IsString()

@@ -170,21 +170,6 @@ export class TrackingContentService {
         );
       }
 
-      if (!isUUID(createContentTrackingDto.userId)) {
-        this.loggerService.error(
-          'Please entire valid UUID.',
-          'BAD_REQUEST',
-          apiId,
-        );
-        return APIResponse.error(
-          response,
-          apiId,
-          'Please entire valid UUID.',
-          JSON.stringify('Please entire valid UUID.'),
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
       //get detailsObject for extract details
       const detailsObject = createContentTrackingDto.detailsObject;
       delete createContentTrackingDto.detailsObject;
@@ -789,21 +774,6 @@ export class TrackingContentService {
             orderOption[orderBy] = order.toUpperCase();
           }
         }
-      }
-
-      if (whereClause['userId'] && !isUUID(whereClause['userId'])) {
-        this.loggerService.error(
-          'Invalid User ID format. It must be a valid UUID.',
-          'BAD_REQUEST',
-          apiId,
-        );
-        return APIResponse.error(
-          response,
-          apiId,
-          'Invalid User ID format. It must be a valid UUID.',
-          'Please enter a valid UUID.',
-          HttpStatus.BAD_REQUEST,
-        );
       }
 
       if (

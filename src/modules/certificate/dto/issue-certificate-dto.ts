@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsDateString, IsOptional, IsString, IsUUID, IsNotEmpty } from 'class-validator';
 
 export class IssueCredentialDto {
   @IsDateString()
@@ -17,8 +17,8 @@ export class IssueCredentialDto {
   @IsString()
   lastName: string;
 
-  @IsUUID()
   @IsString()
+  @IsNotEmpty()
   userId: string;
 
   @IsString()

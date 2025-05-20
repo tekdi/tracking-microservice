@@ -1,7 +1,8 @@
-import { IsString, IsUUID, IsOptional, IsInt, IsDate } from 'class-validator';
+import { IsString, IsUUID, IsOptional, IsInt, IsDate, IsNotEmpty } from 'class-validator';
 
 export class CreateUserCourseCertificateDto {
-  @IsUUID()
+  @IsString()
+  @IsNotEmpty()
   userId: string;
 
   @IsString()

@@ -20,7 +20,7 @@ export class CreateContentTrackingDto {
     description: 'User Id',
   })
   @Expose()
-  @IsUUID(undefined, { message: 'User Id must be a valid UUID' })
+  @IsString()
   @IsNotEmpty()
   userId: string;
 

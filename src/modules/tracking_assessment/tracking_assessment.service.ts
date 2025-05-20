@@ -173,22 +173,6 @@ export class TrackingAssessmentService {
         );
       }
 
-      if (!isUUID(createAssessmentTrackingDto.userId)) {
-        this.loggerService.error(
-          'Please entire valid UUID.',
-          'BAD_REQUEST',
-          apiId,
-          createAssessmentTrackingDto.userId,
-        );
-        return APIResponse.error(
-          response,
-          apiId,
-          'Please entire valid UUID.',
-          JSON.stringify('Please entire valid UUID.'),
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
       const result = await this.assessmentTrackingRepository.save(
         createAssessmentTrackingDto,
       );
@@ -616,21 +600,6 @@ export class TrackingAssessmentService {
             orderOption[orderBy] = order.toUpperCase();
           }
         }
-      }
-
-      if (whereClause['userId'] && !isUUID(whereClause['userId'])) {
-        this.loggerService.error(
-          'Invalid User ID format. It must be a valid UUID.',
-          'BAD_REQUEST',
-          apiId,
-        );
-        return APIResponse.error(
-          response,
-          apiId,
-          'Invalid User ID format. It must be a valid UUID.',
-          'Please enter a valid UUID.',
-          HttpStatus.BAD_REQUEST,
-        );
       }
 
       if (

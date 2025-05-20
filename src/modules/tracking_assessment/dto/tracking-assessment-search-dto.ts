@@ -30,7 +30,7 @@ export class setFilters {
     description: "User Id",
   })
   @Expose()
-  @IsUUID(undefined, { message: 'User Id must be a valid UUID' })
+  @IsString()
   @IsOptional()
   @IsNotEmpty()
   userId: string;
