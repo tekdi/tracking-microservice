@@ -18,6 +18,8 @@ import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
+import { KafkaService } from 'src/kafka/kafka.service';
+
 
 @Injectable()
 export class TrackingAssessmentService {
@@ -31,6 +33,7 @@ export class TrackingAssessmentService {
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private dataSource: DataSource,
     private loggerService: LoggerService,
+    private readonly kafkaService: KafkaService,
   ) {
     this.ttl = this.configService.get('TTL');
   }
@@ -232,6 +235,9 @@ export class TrackingAssessmentService {
         apiId,
         createAssessmentTrackingDto.userId,
       );
+
+      this.publishTrackingEvent('created', result.assessmentTrackingId, apiId)
+
       return APIResponse.success(
         response,
         apiId,
@@ -793,4 +799,45 @@ export class TrackingAssessmentService {
       );
     }
   }
+
+  private async publishTrackingEvent(
+    eventType: 'created' | 'updated' | 'deleted',
+    assessmentTrackingId: string,
+    apiId: string
+  ): Promise<void> {
+    try {
+      let trackingData: any = {};
+      
+      if (eventType === 'deleted') {
+        trackingData = {
+          assessmentTrackingId,
+          deletedAt: new Date().toISOString()
+        };
+      } else {
+        try {
+          const assessmentData = await this.assessmentTrackingRepository.findOne({
+            where: { assessmentTrackingId }
+          });
+  
+          const assessmentScoreData = await this.assessmentTrackingScoreDetailRepository.find({
+            where: { assessmentTrackingId }
+          });
+  
+          trackingData = {
+            ...assessmentData,
+            scores: assessmentScoreData
+          };
+        } catch (error) {
+          trackingData = { assessmentTrackingId };
+        }
+      }
+      
+      console.log(trackingData);
+      
+      await this.kafkaService.publishTrackingEvent(eventType, trackingData, assessmentTrackingId);
+    } catch (error) {
+      // Handle/log error silently
+    }
+  }
+  
 }
