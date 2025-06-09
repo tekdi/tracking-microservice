@@ -5,6 +5,7 @@ import { AssessmentTracking } from 'src/modules/tracking_assessment/entities/tra
 import { AssessmentTrackingScoreDetail } from 'src/modules/tracking_assessment/entities/tracking-assessment-score-details-entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
+import { KafkaModule } from "src/kafka/kafka.module";
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { LoggerService } from 'src/common/logger/logger.service';
       AssessmentTracking,
       AssessmentTrackingScoreDetail,
     ]),
+    KafkaModule,
   ],
   controllers: [TrackingAssessmentController],
   providers: [TrackingAssessmentService, LoggerService],

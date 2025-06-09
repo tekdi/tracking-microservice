@@ -10,17 +10,23 @@ import { TrackingContentModule } from 'src/modules/tracking_content/tracking_con
 import { CertificateModule } from './modules/certificate/certificate.module';
 import { UserCertificateModule } from './modules/user_certificate/user_certificate.module';
 import { TelemetryModule } from './modules/telemtry/telemetry.module';
+import { KafkaModule } from "./kafka/kafka.module";
+import kafkaConfig from "./kafka/kafka.config";
 
 @Module({
   imports: [
     TrackingAssessmentModule,
     TrackingContentModule,
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ 
+      load: [kafkaConfig], // Load the Kafka config
+      isGlobal: true 
+    }),
     DatabaseModule,
     CacheModule.register({ isGlobal: true, store: MemoryStore }),
     CertificateModule,
     UserCertificateModule,
     TelemetryModule,
+    KafkaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

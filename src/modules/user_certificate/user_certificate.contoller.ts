@@ -85,6 +85,7 @@ export class UserCertificateController {
   @ApiOkResponse({ description: 'User added for course successfully' })
   @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
   @ApiBadRequestResponse({ description: 'Bad Request.' })
+  
   @Post('import/user')
   async importUserDataForCertificate(
     @Body() createUserCertificateDto: CreateUserCourseCertificateDto,
