@@ -10,7 +10,6 @@ import { LoggerService } from 'src/common/logger/logger.service';
 import { ConfigService } from '@nestjs/config';
 import { CreateUserCourseCertificateDto } from './dto/create-user-course-certificate.dto';
 import { KafkaService } from 'src/kafka/kafka.service';
-const axios = require('axios');
 
 @Injectable()
 export class UserCertificateService {
@@ -334,30 +333,10 @@ export class UserCertificateService {
     courseId?: string,
   ): Promise<void> {
     try {
-      let trackingData: any = {};
-      let courseDetails = null;
-
-      if (eventType == 'created') {
-        try {
-          //fetch course details
-          courseDetails = await this.getCourseName(data.courseId);
-        } catch (error) {
-          this.loggerService.error(
-            `error while fetching course details`,
-            error,
-          );
-          courseDetails = {};
-        }
-      }
-      trackingData = {
-        data: data,
-      };
-      if (eventType == 'created') {
-        trackingData.courseData = courseDetails.result?.content;
-      }
+      
       await this.kafkaService.publishUserCourseEvent(
         eventType,
-        trackingData,
+        data,
         courseId,
       );
     } catch (error) {
@@ -368,19 +347,5 @@ export class UserCertificateService {
       );
     }
   }
-  //get courseName
-  async getCourseName(courseId) {
-    const url =
-      this.configService.get('MIDDLEWARE_SERVICE_BASE_URL') +
-      '/api/course/v1/hierarchy/' +
-      courseId +
-      '?mode=edit';
-    console.log('url', url);
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-
-    let contentResponse = await axios.get(url, { headers });
-    return contentResponse.data;
-  }
+  
 }
