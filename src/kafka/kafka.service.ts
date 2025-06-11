@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Kafka, Producer } from 'kafkajs';
 
@@ -130,10 +135,47 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       eventType: fullEventType,
       timestamp: new Date().toISOString(),
       assessmentTrackingId,
-      data: trackingData
+      data: trackingData,
     };
-      
+
     await this.publishMessage(topic, payload, assessmentTrackingId);
-    this.logger.log(`Tracking ${fullEventType} event published for tracking ${assessmentTrackingId}`);
+    this.logger.log(
+      `Tracking ${fullEventType} event published for tracking ${assessmentTrackingId}`,
+    );
+  }
+  async publishUserCourseEvent(
+    eventType: 'created' | 'updated',
+    data,
+    courseId: string,
+  ): Promise<void> {
+    if (!this.isKafkaEnabled) {
+      this.logger.warn('Kafka is disabled. Skipping tracking event publish.');
+      return; // Do nothing if Kafka is disabled
+    }
+
+    const topic = this.configService.get<string>('KAFKA_TOPIC', 'course-topic');
+    let fullEventType = '';
+    switch (eventType) {
+      case 'created':
+        fullEventType = 'COURSE_ENROLLMENT_CREATED';
+        break;
+      case 'updated':
+        fullEventType = 'COURSE_STATUS_UPDATED';
+        break;
+      default:
+        fullEventType = 'UNKNOWN_EVENT';
+        break;
+    }
+
+    const payload = {
+      eventType: fullEventType,
+      timestamp: new Date().toISOString(),
+      data: data,
+    };
+
+    await this.publishMessage(topic, payload, courseId);
+    this.logger.log(
+      `Tracking ${fullEventType} event published for tracking ${courseId}`,
+    );
   }
 }

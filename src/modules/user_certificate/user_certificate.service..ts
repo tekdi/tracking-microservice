@@ -9,6 +9,7 @@ import APIResponse from 'src/common/utils/response';
 import { LoggerService } from 'src/common/logger/logger.service';
 import { ConfigService } from '@nestjs/config';
 import { CreateUserCourseCertificateDto } from './dto/create-user-course-certificate.dto';
+import { KafkaService } from 'src/kafka/kafka.service';
 const axios = require('axios');
 
 @Injectable()
@@ -18,6 +19,7 @@ export class UserCertificateService {
     private userCourseCertificateRepository: Repository<UserCourseCertificate>,
     private loggerService: LoggerService,
     private configService: ConfigService,
+    private kafkaService: KafkaService,
   ) {}
 
   async enrollUserForCourse(
@@ -65,6 +67,7 @@ export class UserCertificateService {
         );
       }
       const result = await this.userCourseCertificateRepository.save(data);
+      await this.publishUserCourseEvent('created', data, data.courseId);
 
       return APIResponse.success(
         response,
@@ -122,6 +125,7 @@ export class UserCertificateService {
           this.loggerService.log(
             'User status for course successfully updated to ' + data.status,
           );
+          this.publishUserCourseEvent('updated', updateResult, data.courseId);
           return APIResponse.success(
             response,
             apiId,
@@ -323,5 +327,60 @@ export class UserCertificateService {
         HttpStatus.BAD_REQUEST,
       );
     }
+  }
+  private async publishUserCourseEvent(
+    eventType: 'created' | 'updated',
+    data: any,
+    courseId?: string,
+  ): Promise<void> {
+    try {
+      let trackingData: any = {};
+      let courseDetails = null;
+
+      if (eventType == 'created') {
+        try {
+          //fetch course details
+          courseDetails = await this.getCourseName(data.courseId);
+        } catch (error) {
+          this.loggerService.error(
+            `error while fetching course details`,
+            error,
+          );
+          courseDetails = {};
+        }
+      }
+      trackingData = {
+        data: data,
+      };
+      if (eventType == 'created') {
+        trackingData.courseData = courseDetails.result?.content;
+      }
+      await this.kafkaService.publishUserCourseEvent(
+        eventType,
+        trackingData,
+        courseId,
+      );
+    } catch (error) {
+      // Handle/log error silently
+      this.loggerService.error(
+        `Error while publishing user course event for ${eventType}`,
+        error,
+      );
+    }
+  }
+  //get courseName
+  async getCourseName(courseId) {
+    const url =
+      this.configService.get('MIDDLEWARE_SERVICE_BASE_URL') +
+      '/api/course/v1/hierarchy/' +
+      courseId +
+      '?mode=edit';
+    console.log('url', url);
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    let contentResponse = await axios.get(url, { headers });
+    return contentResponse.data;
   }
 }
