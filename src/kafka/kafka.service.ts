@@ -16,9 +16,17 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
   constructor(private configService: ConfigService) {
     // Retrieve Kafka config from the configuration
-    this.isKafkaEnabled = this.configService.get<boolean>('kafkaEnabled', false); // Default to true if not specified
-    const brokers = this.configService.get<string>('KAFKA_BROKERS', 'localhost:9092').split(',');
-    const clientId = this.configService.get<string>('KAFKA_CLIENT_ID', 'tracking-service');
+    this.isKafkaEnabled = this.configService.get<boolean>(
+      'kafkaEnabled',
+      false,
+    ); // Default to true if not specified
+    const brokers = this.configService
+      .get<string>('KAFKA_BROKERS', 'localhost:9092')
+      .split(',');
+    const clientId = this.configService.get<string>(
+      'KAFKA_CLIENT_ID',
+      'tracking-service',
+    );
 
     // Initialize Kafka client if enabled
     if (this.isKafkaEnabled) {
@@ -59,7 +67,10 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       await this.producer.connect();
       this.logger.log('Kafka producer connected');
     } catch (error) {
-      this.logger.error(`Failed to connect Kafka producer: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to connect Kafka producer: ${error.message}`,
+        error.stack,
+      );
       throw error; // Throwing error to indicate connection failure
     }
   }
@@ -69,19 +80,26 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       await this.producer.disconnect();
       this.logger.log('Kafka producer disconnected');
     } catch (error) {
-      this.logger.error(`Failed to disconnect Kafka producer: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to disconnect Kafka producer: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
   /**
    * Publish a message to a Kafka topic
-   * 
+   *
    * @param topic - The Kafka topic to publish to
    * @param message - The message payload to publish
    * @param key - Optional message key for partitioning
    * @returns A promise that resolves when the message is sent
    */
-  async publishMessage(topic: string, message: any, key?: string): Promise<void> {
+  async publishMessage(
+    topic: string,
+    message: any,
+    key?: string,
+  ): Promise<void> {
     if (!this.isKafkaEnabled) {
       this.logger.warn('Kafka is disabled. Skipping message publish.');
       return; // Do nothing if Kafka is disabled
@@ -93,7 +111,8 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
         messages: [
           {
             key: key || undefined,
-            value: typeof message === 'string' ? message : JSON.stringify(message),
+            value:
+              typeof message === 'string' ? message : JSON.stringify(message),
           },
         ],
       };
@@ -101,20 +120,28 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       await this.producer.send(payload);
       this.logger.debug(`Message published to topic: ${topic}`);
     } catch (error) {
-      this.logger.error(`Failed to publish message to topic ${topic}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to publish message to topic ${topic}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 
-
-
-  async publishTrackingEvent(eventType: 'created' | 'updated' | 'deleted', trackingData: any, assessmentTrackingId: string): Promise<void> {
+  async publishTrackingEvent(
+    eventType: 'created' | 'updated' | 'deleted',
+    trackingData: any,
+    assessmentTrackingId: string,
+  ): Promise<void> {
     if (!this.isKafkaEnabled) {
       this.logger.warn('Kafka is disabled. Skipping tracking event publish.');
       return; // Do nothing if Kafka is disabled
     }
-  
-    const topic = this.configService.get<string>('KAFKA_TOPIC', 'assessment-topic');
+
+    const topic = this.configService.get<string>(
+      'KAFKA_TOPIC',
+      'assessment-topic',
+    );
     let fullEventType = '';
     switch (eventType) {
       case 'created':
@@ -130,7 +157,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
         fullEventType = 'UNKNOWN_EVENT';
         break;
     }
-  
+
     const payload = {
       eventType: fullEventType,
       timestamp: new Date().toISOString(),
@@ -144,7 +171,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
     );
   }
   async publishUserCourseEvent(
-    eventType: 'created' | 'updated',
+    eventType: 'course_created' | 'course_updated',
     data,
     courseId: string,
   ): Promise<void> {
@@ -153,13 +180,13 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       return; // Do nothing if Kafka is disabled
     }
 
-    const topic = this.configService.get<string>('KAFKA_TOPIC', 'course-topic');
+    const topic = this.configService.get<string>('KAFKA_TOPIC');
     let fullEventType = '';
     switch (eventType) {
-      case 'created':
+      case 'course_created':
         fullEventType = 'COURSE_ENROLLMENT_CREATED';
         break;
-      case 'updated':
+      case 'course_updated':
         fullEventType = 'COURSE_STATUS_UPDATED';
         break;
       default:

@@ -66,7 +66,7 @@ export class UserCertificateService {
         );
       }
       const result = await this.userCourseCertificateRepository.save(data);
-      await this.publishUserCourseEvent('created', data, data.courseId);
+      await this.publishUserCourseEvent('course_created', data, data.courseId);
 
       return APIResponse.success(
         response,
@@ -124,7 +124,11 @@ export class UserCertificateService {
           this.loggerService.log(
             'User status for course successfully updated to ' + data.status,
           );
-          this.publishUserCourseEvent('updated', updateResult, data.courseId);
+          this.publishUserCourseEvent(
+            'course_updated',
+            updateResult,
+            data.courseId,
+          );
           return APIResponse.success(
             response,
             apiId,
@@ -328,17 +332,12 @@ export class UserCertificateService {
     }
   }
   private async publishUserCourseEvent(
-    eventType: 'created' | 'updated',
+    eventType: 'course_created' | 'course_updated',
     data: any,
     courseId?: string,
   ): Promise<void> {
     try {
-      
-      await this.kafkaService.publishUserCourseEvent(
-        eventType,
-        data,
-        courseId,
-      );
+      await this.kafkaService.publishUserCourseEvent(eventType, data, courseId);
     } catch (error) {
       // Handle/log error silently
       this.loggerService.error(
@@ -347,5 +346,4 @@ export class UserCertificateService {
       );
     }
   }
-  
 }
