@@ -13,6 +13,7 @@ import { TelemetryModule } from './modules/telemtry/telemetry.module';
 import { KafkaModule } from './kafka/kafka.module';
 import kafkaConfig from './kafka/kafka.config';
 import { AiAssessmentModule } from './modules/ai_assessment/ai_assessment.module';
+import { AnswerSheetSubmissionsModule } from './modules/answer_sheet_submissions/answer_sheet_submissions.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AiAssessmentModule } from './modules/ai_assessment/ai_assessment.module
     TelemetryModule,
     KafkaModule,
     AiAssessmentModule,
+    AnswerSheetSubmissionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
