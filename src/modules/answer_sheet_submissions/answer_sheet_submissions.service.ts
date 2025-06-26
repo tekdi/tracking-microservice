@@ -103,7 +103,7 @@ export class AnswerSheetSubmissionsService {
   public async findAnswerSheetSubmission(answerSheetSubmissionId: string) {
     const result = await this.answerSheetSubmissionsRepository.findOne({
       where: {
-        questionSetId: answerSheetSubmissionId,
+        id: answerSheetSubmissionId,
       },
     });
     if (result) {
