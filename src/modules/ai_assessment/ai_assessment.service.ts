@@ -130,17 +130,29 @@ export class AiAssessmentService {
       }
       const insertObject = this.transformToInsertObject(createAiAssessmentDto);
       const result = await this.aiAssessmentRepository.save(insertObject);
-      
+
       // Call external AI API
       delete insertObject.assessment_mode;
       insertObject.token = createAiAssessmentDto.token;
-     const genratedQuestionResponse = await this.callExternalAiApi(insertObject);
-      this.loggerService.log(
-        'External AI API called successfully.',
-        apiId,
-        result.id,
+      //Remove thisAdd commentMore actions
+      //---------------
+      const resultOfUpdate = await this.updateQuestionSetHierarchy(
+        createAiAssessmentDto.questionSetId,
+        request.body.token,
       );
-      
+      await this.updateQuestionSetWithQuestion(
+        createAiAssessmentDto.questionSetId,
+        Object.values(resultOfUpdate.result.identifiers)[0] + '',
+        request.body.token,
+      );
+      //----------------
+      //  const genratedQuestionResponse = await this.callExternalAiApi(insertObject);
+      //   this.loggerService.log(
+      //     'External AI API called successfully.',
+      //     apiId,
+      //     result.id,
+      //   );
+
       await this.aiAssessmentRepository.update(result.id, {
         status: 'PROCESSING',
       });
@@ -176,7 +188,6 @@ export class AiAssessmentService {
       );
     }
   }
-
 
   public transformToInsertObject(
     input: AiAssessmentCreateDto,
@@ -253,247 +264,251 @@ export class AiAssessmentService {
     }
   }
   // //for testing only
-  // async updateQuestionSetHierarchy(doId: string, token): Promise<any> {
-  //   const url =
-  //     'https://qa-interface.prathamdigital.org/interface/v1/action/questionset/v2/hierarchy/update';
+  async updateQuestionSetHierarchy(doId: string, token): Promise<any> {
+    const url =
+      this.configService.get<string>('MIDDLEWARE_SERVICE_BASE_URL') +
+      '/action/questionset/v2/hierarchy/update';
 
-  //   const headers = {
-  //     Accept: 'application/json, text/plain, */*',
-  //     'Content-Type': 'application/json',
-  //     'X-Channel-Id': 'pos-channel',
-  //     'X-Request-Id': 'dcf4f9e4-a956-485f-8c2a-d5b19a93a32e',
-  //     tenantid: '6c8b810a-66c2-4f0d-8c0c-c025415a4414',
-  //     Authorization: `Bearer ${token}`, //  Replace this with valid token
-  //   };
+    const headers = {
+      Accept: 'application/json, text/plain, */*',
+      'Content-Type': 'application/json',
+      'X-Channel-Id': 'scp-channel',
+      'X-Request-Id': 'dcf4f9e4-a956-485f-8c2a-d5b19a93a32e',
+      tenantid: '6c8b810a-66c2-4f0d-8c0c-c025415a4414',
+      Authorization: `Bearer ${token}`, //  Replace this with valid token
+    };
 
-  //   const body = {
-  //     request: {
-  //       data: {
-  //         nodesModified: {
-  //           [doId]: {
-  //             root: true,
-  //             objectType: 'QuestionSet',
-  //             metadata: {
-  //               appIcon: '',
-  //               name: 'QuestionSet 1',
-  //               program: ['Open School'],
-  //               subject: ['Job Readiness'],
-  //               targetAgeGroup: ['18 yrs +'],
-  //               primaryUser: ['Learners/Children'],
-  //               showTimer: false,
-  //               requiresSubmit: 'No',
-  //               author: 'sanket patil',
-  //               primaryCategory: 'Practice Question Set',
-  //               attributions: [],
-  //               timeLimits: {
-  //                 questionSet: { max: 0, min: 0 },
-  //               },
-  //               description: 'QuestionSet 1',
-  //               domain: 'Learning for Work',
-  //               subDomain: ['New Age Skills'],
-  //               contentLanguage: 'English',
-  //               assessmentType: 'Post Test',
-  //               outcomeDeclaration: {
-  //                 maxScore: {
-  //                   cardinality: 'single',
-  //                   type: 'integer',
-  //                   defaultValue: 0,
-  //                 },
-  //               },
-  //             },
-  //             isNew: false,
-  //           },
-  //           '12c4bc48-dc45-4e3c-b155-f22721b73296': {
-  //             root: false,
-  //             objectType: 'QuestionSet',
-  //             metadata: {
-  //               mimeType: 'application/vnd.sunbird.questionset',
-  //               code: '12c4bc48-dc45-4e3c-b155-f22721b73296',
-  //               name: 'Section 1',
-  //               visibility: 'Parent',
-  //               primaryCategory: 'Practice Question Set',
-  //               shuffle: true,
-  //               showFeedback: false,
-  //               showSolutions: false,
-  //               attributions: [],
-  //               timeLimits: {
-  //                 questionSet: { max: 0, min: 0 },
-  //               },
-  //               description: 'section 1',
-  //             },
-  //             isNew: true,
-  //           },
-  //         },
-  //         hierarchy: {
-  //           [doId]: {
-  //             name: 'QuestionSet 1',
-  //             children: ['12c4bc48-dc45-4e3c-b155-f22721b73296'],
-  //             root: true,
-  //           },
-  //           '12c4bc48-dc45-4e3c-b155-f22721b73296': {
-  //             name: 'Section 1',
-  //             children: [],
-  //             root: false,
-  //           },
-  //         },
-  //         lastUpdatedBy: '82470f1e-0154-48d2-aa2c-407b42b3c83f',
-  //       },
-  //     },
-  //   };
+    const body = {
+      request: {
+        data: {
+          nodesModified: {
+            [doId]: {
+              root: true,
+              objectType: 'QuestionSet',
+              metadata: {
+                appIcon: '',
+                name: 'QuestionSet SCP',
+                program: [],
+                medium: ['Marathi'],
+                gradeLevel: ['Grade 10'],
+                subject: ['English'],
+                courseType: ['Exam Prep'],
+                showTimer: false,
+                requiresSubmit: 'No',
+                author: 'Rajnish SCP Creator',
+                primaryCategory: 'Practice Question Set',
+                attributions: [],
+                timeLimits: {
+                  questionSet: { max: 0, min: 0 },
+                },
+                description: 'QuestionSet SCP',
+                instructions: '<p>QuestionSet test</p>',
+                board: 'Maharashtra State Education Board',
+                assessmentType: 'Post Test',
+                outcomeDeclaration: {
+                  maxScore: {
+                    cardinality: 'single',
+                    type: 'integer',
+                    defaultValue: 0,
+                  },
+                },
+              },
+              isNew: false,
+            },
+            '64af35e8-3b50-4d2a-893f-d29c01d0e44c': {
+              root: false,
+              objectType: 'QuestionSet',
+              metadata: {
+                mimeType: 'application/vnd.sunbird.questionset',
+                code: '64af35e8-3b50-4d2a-893f-d29c01d0e44c',
+                name: 'Section 2',
+                visibility: 'Parent',
+                primaryCategory: 'Practice Question Set',
+                shuffle: true,
+                showFeedback: false,
+                showSolutions: false,
+                attributions: [],
+                timeLimits: {
+                  questionSet: { max: 0, min: 0 },
+                },
+                description: 'section 2',
+              },
+              isNew: true,
+            },
+          },
+          hierarchy: {
+            [doId]: {
+              name: 'QuestionSet SCP',
+              children: ['64af35e8-3b50-4d2a-893f-d29c01d0e44c'],
+              root: true,
+            },
+            '64af35e8-3b50-4d2a-893f-d29c01d0e44c': {
+              name: 'Section 2',
+              children: [],
+              root: false,
+            },
+          },
+          lastUpdatedBy: 'f6eaa932-f351-46f0-b9f3-a0f0d3d88390',
+        },
+      },
+    };
 
-  //   try {
-  //     const response = await axios.patch(url, body, { headers });
-  //     return response.data;
-  //   } catch (error) {
-  //     console.error(
-  //       'Error updating hierarchy:',
-  //       error.response?.data || error.message,
-  //     );
-  //     throw error;
-  //   }
-  // }
+    try {
+      const response = await axios.patch(url, JSON.stringify(body), {
+        headers,
+      });
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error updating hierarchy:',
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  }
   // //for testing only
-  // async updateQuestionSetWithQuestion(
-  //   rootDoId: string,
-  //   sectionDoId: string,
-  //   token,
-  // ) {
-  //   const url =
-  //     'https://qa-interface.prathamdigital.org/interface/v1/action/questionset/v2/hierarchy/update';
+  async updateQuestionSetWithQuestion(
+    rootDoId: string,
+    sectionDoId: string,
+    token,
+  ) {
+    const url =
+      this.configService.get<string>('MIDDLEWARE_SERVICE_BASE_URL') +
+      '/action/questionset/v2/hierarchy/update';
 
-  //   const headers = {
-  //     Accept: 'application/json, text/plain, */*',
-  //     'Content-Type': 'application/json',
-  //     'X-Channel-Id': 'pos-channel',
-  //     'X-Request-Id': 'c06e0789-b764-4ab7-98c2-7e0a4e67de7e',
-  //     tenantid: '6c8b810a-66c2-4f0d-8c0c-c025415a4414',
-  //     Authorization: `Bearer ${token}`, //  Replace this with valid token
-  //   };
+    const headers = {
+      Accept: 'application/json, text/plain, */*',
+      'Content-Type': 'application/json',
+      'X-Channel-Id': 'scp-channel',
+      'X-Request-Id': 'c06e0789-b764-4ab7-98c2-7e0a4e67de7e',
+      tenantid: '6c8b810a-66c2-4f0d-8c0c-c025415a4414',
+      Authorization: `Bearer ${token}`, //  Replace this with valid token
+    };
 
-  //   const body = {
-  //     request: {
-  //       data: {
-  //         nodesModified: {
-  //           '47ef9f98-e4b0-4c62-b3ac-9edbb170e64f': {
-  //             metadata: {
-  //               mimeType: 'application/vnd.sunbird.question',
-  //               media: [],
-  //               editorState: {
-  //                 options: [
-  //                   {
-  //                     answer: true,
-  //                     value: { body: '<p>Front end developer</p>', value: 0 },
-  //                   },
-  //                   {
-  //                     answer: false,
-  //                     value: { body: '<p>Backend Developer</p>', value: 1 },
-  //                   },
-  //                   {
-  //                     answer: false,
-  //                     value: { body: '<p>DB Designer</p>', value: 2 },
-  //                   },
-  //                   {
-  //                     answer: false,
-  //                     value: { body: '<p>Cloud engineer&nbsp;</p>', value: 3 },
-  //                   },
-  //                 ],
-  //                 question:
-  //                   '<p>AI generated Question — &nbsp;UI developer is refereed as -------------- .&nbsp;</p>',
-  //               },
-  //               templateId: 'mcq-vertical',
-  //               answer:
-  //                 "<div class='answer-container'><div class='answer-body'><p>Front end developer</p></div></div>",
-  //               maxScore: 1,
-  //               name: 'Question 1',
-  //               responseDeclaration: {
-  //                 response1: {
-  //                   cardinality: 'single',
-  //                   type: 'integer',
-  //                   correctResponse: { value: 0 },
-  //                   mapping: [{ value: 0, score: 1 }],
-  //                 },
-  //               },
-  //               outcomeDeclaration: {
-  //                 maxScore: {
-  //                   cardinality: 'single',
-  //                   type: 'integer',
-  //                   defaultValue: 1,
-  //                 },
-  //                 hint: {
-  //                   cardinality: 'single',
-  //                   type: 'string',
-  //                   defaultValue: 'f685949d-5757-47d4-aee2-23e708af84f2',
-  //                 },
-  //               },
-  //               interactionTypes: ['choice'],
-  //               interactions: {
-  //                 response1: {
-  //                   type: 'choice',
-  //                   options: [
-  //                     {
-  //                       label: '<p>Front end developer</p>',
-  //                       value: 0,
-  //                       hint: '',
-  //                     },
-  //                     { label: '<p>Backend Developer</p>', value: 1, hint: '' },
-  //                     { label: '<p>DB Designer</p>', value: 2, hint: '' },
-  //                     {
-  //                       label: '<p>Cloud engineer&nbsp;</p>',
-  //                       value: 3,
-  //                       hint: '',
-  //                     },
-  //                   ],
-  //                   validation: { required: 'Yes' },
-  //                 },
-  //               },
-  //               hints: {},
-  //               qType: 'MCQ',
-  //               primaryCategory: 'Multiple Choice Question',
-  //               body: "<div class='question-body' tabindex='-1'><div class='mcq-title' tabindex='0'><p>AI generated Question — &nbsp;UI developer is refereed as -------------- .&nbsp;</p></div><div data-choice-interaction='response1' class='mcq-vertical'></div></div>",
-  //               solutions: {},
-  //               createdBy: '82470f1e-0154-48d2-aa2c-407b42b3c83f',
-  //               subject: ['Job Readiness'],
-  //               domain: 'Learning for Work',
-  //               subDomain: ['New Age Skills'],
-  //               program: ['Open School'],
-  //               author: 'sanket patil',
-  //               channel: 'pos-channel',
-  //               framework: 'pos-framework',
-  //               license: 'CC BY 4.0',
-  //               visibility: 'Default',
-  //             },
-  //             objectType: 'Question',
-  //             root: false,
-  //             isNew: true,
-  //           },
-  //         },
-  //         hierarchy: {
-  //           [rootDoId]: {
-  //             name: 'QuestionSet 1',
-  //             children: [sectionDoId],
-  //             root: true,
-  //           },
-  //           [sectionDoId]: {
-  //             name: 'Section 1',
-  //             children: ['47ef9f98-e4b0-4c62-b3ac-9edbb170e64f'],
-  //             root: false,
-  //           },
-  //         },
-  //       },
-  //     },
-  //   };
+    const body = {
+      request: {
+        data: {
+          nodesModified: {
+            '47ef9f98-e4b0-4c62-b3ac-9edbb170e64f': {
+              metadata: {
+                mimeType: 'application/vnd.sunbird.question',
+                media: [],
+                editorState: {
+                  options: [
+                    {
+                      answer: true,
+                      value: { body: '<p>Front end developer</p>', value: 0 },
+                    },
+                    {
+                      answer: false,
+                      value: { body: '<p>Backend Developer</p>', value: 1 },
+                    },
+                    {
+                      answer: false,
+                      value: { body: '<p>DB Designer</p>', value: 2 },
+                    },
+                    {
+                      answer: false,
+                      value: { body: '<p>Cloud engineer&nbsp;</p>', value: 3 },
+                    },
+                  ],
+                  question:
+                    '<p>AI generated Question — &nbsp;UI developer is refereed as -------------- .&nbsp;</p>',
+                },
+                templateId: 'mcq-vertical',
+                answer:
+                  "<div class='answer-container'><div class='answer-body'><p>Front end developer</p></div></div>",
+                maxScore: 1,
+                name: 'Question 1',
+                responseDeclaration: {
+                  response1: {
+                    cardinality: 'single',
+                    type: 'integer',
+                    correctResponse: { value: 0 },
+                    mapping: [{ value: 0, score: 1 }],
+                  },
+                },
+                outcomeDeclaration: {
+                  maxScore: {
+                    cardinality: 'single',
+                    type: 'integer',
+                    defaultValue: 1,
+                  },
+                  hint: {
+                    cardinality: 'single',
+                    type: 'string',
+                    defaultValue: 'f685949d-5757-47d4-aee2-23e708af84f2',
+                  },
+                },
+                interactionTypes: ['choice'],
+                interactions: {
+                  response1: {
+                    type: 'choice',
+                    options: [
+                      {
+                        label: '<p>Front end developer</p>',
+                        value: 0,
+                        hint: '',
+                      },
+                      { label: '<p>Backend Developer</p>', value: 1, hint: '' },
+                      { label: '<p>DB Designer</p>', value: 2, hint: '' },
+                      {
+                        label: '<p>Cloud engineer&nbsp;</p>',
+                        value: 3,
+                        hint: '',
+                      },
+                    ],
+                    validation: { required: 'Yes' },
+                  },
+                },
+                hints: {},
+                qType: 'MCQ',
+                primaryCategory: 'Multiple Choice Question',
+                body: "<div class='question-body' tabindex='-1'><div class='mcq-title' tabindex='0'><p>AI generated Question — &nbsp;UI developer is refereed as -------------- .&nbsp;</p></div><div data-choice-interaction='response1' class='mcq-vertical'></div></div>",
+                solutions: {},
+                createdBy: '82470f1e-0154-48d2-aa2c-407b42b3c83f',
+                subject: ['Job Readiness'],
+                domain: 'Learning for Work',
+                subDomain: ['New Age Skills'],
+                program: ['Open School'],
+                author: 'sanket patil',
+                channel: 'pos-channel',
+                framework: 'pos-framework',
+                license: 'CC BY 4.0',
+                visibility: 'Default',
+              },
+              objectType: 'Question',
+              root: false,
+              isNew: true,
+            },
+          },
+          hierarchy: {
+            [rootDoId]: {
+              name: 'QuestionSet 1',
+              children: [sectionDoId],
+              root: true,
+            },
+            [sectionDoId]: {
+              name: 'Section 1',
+              children: ['47ef9f98-e4b0-4c62-b3ac-9edbb170e64f'],
+              root: false,
+            },
+          },
+        },
+      },
+    };
 
-  //   try {
-  //     const response = await axios.patch(url, body, { headers });
-  //     return response.data;
-  //   } catch (error) {
-  //     console.error(
-  //       'Failed to update QuestionSet with question:',
-  //       error.response?.data || error.message,
-  //     );
-  //     throw error;
-  //   }
-  // }
+    try {
+      const response = await axios.patch(url, body, { headers });
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Failed to update QuestionSet with question:',
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  }
 
   /**
    * Call external AI API to process the assessment
@@ -505,23 +520,23 @@ export class AiAssessmentService {
     if (!apiUrl) {
       throw new Error('AI_API_BASE_URL environment variable is not configured');
     }
-    
+
     // Need to Add security token
     const headers = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     try {
       const response = await axios.post(
         `${apiUrl}/request-questions/`,
         insertObject,
-        { headers }
+        { headers },
       );
 
       this.loggerService.log(
         'External AI API response received',
         'callExternalAiApi',
-        insertObject.question_set_id
+        insertObject.question_set_id,
       );
 
       return response.data;
@@ -530,10 +545,10 @@ export class AiAssessmentService {
         'External AI API call failed',
         error.response?.data?.message || error.message,
         'callExternalAiApi',
-        insertObject.question_set_id
+        insertObject.question_set_id,
       );
       throw new Error(
-        `External AI API call failed: ${error.response?.data?.message || error.message}`
+        `External AI API call failed: ${error.response?.data?.message || error.message}`,
       );
     }
   }
