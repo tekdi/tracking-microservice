@@ -339,7 +339,7 @@
             ]
         },
         {
-            "sourceRoute": "/interface/v1/tracking/tracking/ai-assessment/read/:identifier",
+            "sourceRoute": "/interface/v1/tracking/ai-assessment/read/:identifier",
             "type": "GET",
             "priority": "MUST_HAVE",
             "inSequence": false,
