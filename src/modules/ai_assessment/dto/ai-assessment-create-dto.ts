@@ -112,6 +112,23 @@ export class AiAssessmentCreateDto {
   @IsNotEmpty()
   questionSetId: string;
 
+  @IsOptional()
+  @IsString()
+  framework?: string;
+
+  @IsOptional()
+  @IsString()
+  channel?: string;
+
+  @IsOptional()
+  @IsString()
+  difficulty_level?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  question_types?: string[];
+
   @ValidateNested()
   @Type(() => MetadataDto)
   metadata: MetadataDto;
@@ -129,6 +146,10 @@ export class AiAssessmentCreateDto {
   @IsString()
   @IsNotEmpty()
   createdBy: string;
+
+  @IsOptional()
+  @IsString()
+  tenantId?: string;
 
   @IsOptional()
   @IsString()

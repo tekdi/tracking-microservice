@@ -18,14 +18,29 @@ import { KafkaService } from 'src/kafka/kafka.service';
 import { AiAssessment } from 'src/modules/ai_assessment/entities/ai-assessment-entity';
 import { AiAssessmentCreateDto } from './dto/ai-assessment-create-dto';
 import axios from 'axios';
+
 type TrackerInsertObject = {
   question_set_id: string;
   assessment_mode: 'ONLINE' | 'OFFLINE';
   status: 'INITIATED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   response_message: string | null;
   metadata: Record<string, any>;
+};
+
+type ExternalApiRequestObject = {
+  questionSetId: string;
+  framework?: string;
+  channel?: string;
+  difficulty_level?: string;
+  question_types?: string[];
+  metadata: Record<string, any>;
+  questionsDetails: any[];
+  content: any[];
+  createdBy: string;
+  tenantId?: string;
   token?: string;
 };
+
 @Injectable()
 export class AiAssessmentService {
   private ttl;
@@ -109,6 +124,7 @@ export class AiAssessmentService {
   ) {
     const apiId = 'api.create.aiAssessment';
     try {
+      console.log("createAiAssessmentDto",createAiAssessmentDto)
       // Check if record exists for question_set_id
       const existing = await this.aiAssessmentRepository.findOne({
         where: { question_set_id: createAiAssessmentDto.questionSetId },
@@ -129,33 +145,57 @@ export class AiAssessmentService {
         );
       }
       const insertObject = this.transformToInsertObject(createAiAssessmentDto);
+      console.log("insertObject",insertObject);
       const result = await this.aiAssessmentRepository.save(insertObject);
       
       // Call external AI API
-      delete insertObject.assessment_mode;
-      insertObject.token = createAiAssessmentDto.token;
-     const genratedQuestionResponse = await this.callExternalAiApi(insertObject);
+      const externalApiObject = this.transformToExternalApiObject(createAiAssessmentDto);
+      const generatedQuestionResponse = await this.callExternalAiApi(externalApiObject);
       this.loggerService.log(
         'External AI API called successfully.',
         apiId,
         result.id,
       );
       
+      // Update database with external API response data
       await this.aiAssessmentRepository.update(result.id, {
         status: 'PROCESSING',
+        response_message: generatedQuestionResponse.message,
+        metadata: {
+          ...result.metadata,
+          externalApiResponse: {
+            request_id: generatedQuestionResponse.request_id,
+            question_set_id: generatedQuestionResponse.question_set_id,
+            status: generatedQuestionResponse.status,
+            message: generatedQuestionResponse.message
+          }
+        }
       });
 
-      if (result) {
+      // Fetch updated result to include external API response
+      const updatedResult = await this.aiAssessmentRepository.findOne({
+        where: { id: result.id }
+      });
+
+      if (updatedResult) {
         this.loggerService.log(
           'AI Assessment created successfully.',
           apiId,
-          result.id,
+          updatedResult.id,
         );
       }
       return APIResponse.success(
         response,
         apiId,
-        result,
+        {
+          ...updatedResult,
+          externalApiResponse: {
+            request_id: generatedQuestionResponse.request_id,
+            question_set_id: generatedQuestionResponse.question_set_id,
+            status: generatedQuestionResponse.status,
+            message: generatedQuestionResponse.message
+          }
+        },
         HttpStatus.OK,
         'AI Assessment created successfully.',
       );
@@ -195,6 +235,25 @@ export class AiAssessmentService {
       },
     };
   }
+
+  public transformToExternalApiObject(
+    input: AiAssessmentCreateDto,
+  ): ExternalApiRequestObject {
+    return {
+      questionSetId: input.questionSetId,
+      framework: input.framework,
+      channel: input.channel,
+      difficulty_level: input.difficulty_level,
+      question_types: input.question_types,
+      metadata: input.metadata,
+      questionsDetails: input.questionsDetails,
+      content: input.content,
+      createdBy: input.createdBy,
+      tenantId: input.tenantId,
+      token: input.token,
+    };
+  }
+
   public async updateStatusByQuestionSetId(
     questionSetId: string,
     status: 'PROCESSING' | 'COMPLETED' | 'FAILED',
@@ -499,8 +558,9 @@ export class AiAssessmentService {
    * Call external AI API to process the assessment
    */
   private async callExternalAiApi(
-    insertObject: TrackerInsertObject,
+    insertObject: ExternalApiRequestObject,
   ): Promise<any> {
+    console.log("insertObject",insertObject);
     const apiUrl = this.configService.get<string>('AI_API_BASE_URL');
     if (!apiUrl) {
       throw new Error('AI_API_BASE_URL environment variable is not configured');
@@ -521,16 +581,16 @@ export class AiAssessmentService {
       this.loggerService.log(
         'External AI API response received',
         'callExternalAiApi',
-        insertObject.question_set_id
+        insertObject.questionSetId
       );
-
+      console.log("response.data",response);
       return response.data;
     } catch (error) {
       this.loggerService.error(
         'External AI API call failed',
         error.response?.data?.message || error.message,
         'callExternalAiApi',
-        insertObject.question_set_id
+        insertObject.questionSetId
       );
       throw new Error(
         `External AI API call failed: ${error.response?.data?.message || error.message}`
