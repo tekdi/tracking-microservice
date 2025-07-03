@@ -25,6 +25,7 @@ type TrackerInsertObject = {
   status: 'INITIATED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   response_message: string | null;
   metadata: Record<string, any>;
+  token?: string;
 };
 
 type ExternalApiRequestObject = {
@@ -216,7 +217,6 @@ export class AiAssessmentService {
       );
     }
   }
-
 
   public transformToInsertObject(
     input: AiAssessmentCreateDto,
@@ -597,4 +597,9 @@ export class AiAssessmentService {
       );
     }
   }
+
+  /**
+   * Call external AI API to process the assessment
+   */
 }
+
