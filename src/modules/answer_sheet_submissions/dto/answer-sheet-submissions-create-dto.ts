@@ -1,4 +1,12 @@
-import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, IsJSON } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsJSON,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 enum SubmissionStatus {

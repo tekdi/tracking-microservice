@@ -137,11 +137,13 @@ export class AnswerSheetSubmissionsController {
   async updateStatus(
     @Param('Id') Id: string,
     @Body('status') status: 'PROCESSING' | 'COMPLETED' | 'FAILED',
+    @Body('message') responseMessage: string,
     @Res() response: Response,
   ) {
     return this.answerSheetSubmissionsService.updateStatusByQuestionSetId(
       Id,
       status,
+      responseMessage,
       response,
     );
   }

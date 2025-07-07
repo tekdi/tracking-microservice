@@ -125,7 +125,7 @@ export class AiAssessmentService {
   ) {
     const apiId = 'api.create.aiAssessment';
     try {
-      console.log("createAiAssessmentDto",createAiAssessmentDto)
+      console.log('createAiAssessmentDto', createAiAssessmentDto);
       // Check if record exists for question_set_id
       const existing = await this.aiAssessmentRepository.findOne({
         where: { question_set_id: createAiAssessmentDto.questionSetId },
@@ -146,18 +146,21 @@ export class AiAssessmentService {
         );
       }
       const insertObject = this.transformToInsertObject(createAiAssessmentDto);
-      console.log("insertObject",insertObject);
+      console.log('insertObject', insertObject);
       const result = await this.aiAssessmentRepository.save(insertObject);
-      
+
       // Call external AI API
-      const externalApiObject = this.transformToExternalApiObject(createAiAssessmentDto);
-      const generatedQuestionResponse = await this.callExternalAiApi(externalApiObject);
+      const externalApiObject = this.transformToExternalApiObject(
+        createAiAssessmentDto,
+      );
+      const generatedQuestionResponse =
+        await this.callExternalAiApi(externalApiObject);
       this.loggerService.log(
         'External AI API called successfully.',
         apiId,
         result.id,
       );
-      
+
       // Update database with external API response data
       await this.aiAssessmentRepository.update(result.id, {
         status: 'PROCESSING',
@@ -168,14 +171,14 @@ export class AiAssessmentService {
             request_id: generatedQuestionResponse.request_id,
             question_set_id: generatedQuestionResponse.question_set_id,
             status: generatedQuestionResponse.status,
-            message: generatedQuestionResponse.message
-          }
-        }
+            message: generatedQuestionResponse.message,
+          },
+        },
       });
 
       // Fetch updated result to include external API response
       const updatedResult = await this.aiAssessmentRepository.findOne({
-        where: { id: result.id }
+        where: { id: result.id },
       });
 
       if (updatedResult) {
@@ -194,8 +197,8 @@ export class AiAssessmentService {
             request_id: generatedQuestionResponse.request_id,
             question_set_id: generatedQuestionResponse.question_set_id,
             status: generatedQuestionResponse.status,
-            message: generatedQuestionResponse.message
-          }
+            message: generatedQuestionResponse.message,
+          },
         },
         HttpStatus.OK,
         'AI Assessment created successfully.',
@@ -257,6 +260,7 @@ export class AiAssessmentService {
   public async updateStatusByQuestionSetId(
     questionSetId: string,
     status: 'PROCESSING' | 'COMPLETED' | 'FAILED',
+    responseMessage,
     response: Response,
   ) {
     const apiId = 'api.update.aiAssessmentStatus';
@@ -280,6 +284,7 @@ export class AiAssessmentService {
         );
       }
       record.status = status;
+      record.response_message = responseMessage || null;
       await this.aiAssessmentRepository.save(record);
       delete record.metadata;
       this.loggerService.log(
@@ -560,40 +565,40 @@ export class AiAssessmentService {
   private async callExternalAiApi(
     insertObject: ExternalApiRequestObject,
   ): Promise<any> {
-    console.log("insertObject",insertObject);
+    console.log('insertObject', insertObject);
     const apiUrl = this.configService.get<string>('AI_API_BASE_URL');
     if (!apiUrl) {
       throw new Error('AI_API_BASE_URL environment variable is not configured');
     }
-    
+
     // Need to Add security token
     const headers = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     try {
       const response = await axios.post(
-        `${apiUrl}/request-questions/`,
+        `${apiUrl}/answer-sheet-submission/`,
         insertObject,
-        { headers }
+        { headers },
       );
 
       this.loggerService.log(
         'External AI API response received',
         'callExternalAiApi',
-        insertObject.questionSetId
+        insertObject.questionSetId,
       );
-      console.log("response.data",response);
+      console.log('response.data', response);
       return response.data;
     } catch (error) {
       this.loggerService.error(
         'External AI API call failed',
         error.response?.data?.message || error.message,
         'callExternalAiApi',
-        insertObject.questionSetId
+        insertObject.questionSetId,
       );
       throw new Error(
-        `External AI API call failed: ${error.response?.data?.message || error.message}`
+        `External AI API call failed: ${error.response?.data?.message || error.message}`,
       );
     }
   }
@@ -602,4 +607,3 @@ export class AiAssessmentService {
    * Call external AI API to process the assessment
    */
 }
-

@@ -131,11 +131,13 @@ export class AiAssessmentController {
   async updateStatus(
     @Param('questionSetId') questionSetId: string,
     @Body('status') status: 'PROCESSING' | 'COMPLETED' | 'FAILED',
+    @Body('message') responseMessage: string | null,
     @Res() response: Response,
   ) {
     return this.aiAssessmentService.updateStatusByQuestionSetId(
       questionSetId,
       status,
+      responseMessage,
       response,
     );
   }
