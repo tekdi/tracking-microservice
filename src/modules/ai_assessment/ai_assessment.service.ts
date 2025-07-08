@@ -333,9 +333,9 @@ export class AiAssessmentService {
         params.push(searchFilter.id);
       }
 
-      if (searchFilter?.question_set_id) {
-        conditions.push(`"question_set_id" = $${params.length + 1}`);
-        params.push(searchFilter.question_set_id);
+      if (searchFilter?.question_set_id?.length) {
+        conditions.push(`"question_set_id" = ANY($${params.length + 1})`);
+        params.push(searchFilter.question_set_id); // array of question_set_ids
       }
 
       if (searchFilter?.assessment_mode) {

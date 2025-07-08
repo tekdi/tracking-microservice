@@ -346,9 +346,9 @@ export class AnswerSheetSubmissionsService {
         params.push(searchFilter.id);
       }
 
-      if (searchFilter?.userId) {
-        conditions.push(`"user_id" = $${params.length + 1}`);
-        params.push(searchFilter.userId);
+      if (searchFilter?.userId?.length) {
+        conditions.push(`"user_id" = ANY($${params.length + 1})`);
+        params.push(searchFilter.userId); // This should be an array
       }
 
       if (searchFilter?.questionSetId) {

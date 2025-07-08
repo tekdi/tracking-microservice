@@ -20,6 +20,7 @@ import { DataSource } from 'typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
 import { KafkaService } from 'src/kafka/kafka.service';
 import { AiAssessment } from '../ai_assessment/entities/ai-assessment-entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class TrackingAssessmentService {
@@ -957,6 +958,92 @@ export class TrackingAssessmentService {
       );
     } catch (error) {
       // Handle/log error silently
+    }
+  }
+  public async offlineAssessmentCheck(
+    request: any,
+    object: any,
+    response: Response,
+  ) {
+    const apiId = 'api.offline.assessment.check';
+    try {
+      const result = await this.assessmentTrackingRepository.find({
+        where: {
+          userId: In(object.userIds),
+          contentId: object.questionSetId,
+        },
+      });
+
+      if (result.length === 0) {
+        this.loggerService.log(
+          'No offline assessment records found.',
+          apiId,
+          object,
+        );
+        return APIResponse.success(
+          response,
+          apiId,
+          { status: false },
+          HttpStatus.OK,
+          'No offline assessment records found.',
+        );
+      }
+      const groupedByUser = new Map<string, typeof result>();
+
+      for (const item of result) {
+        if (!groupedByUser.has(item.userId)) {
+          groupedByUser.set(item.userId, []);
+        }
+        groupedByUser.get(item.userId).push(item);
+      }
+      const finalResult = [];
+
+      for (const [userId, records] of groupedByUser.entries()) {
+        let uploadedFlag = false;
+        let submitedFlag = false;
+        let status;
+
+        if (records.length === 1 && records[0].submitedBy === 'AI Evaluator') {
+          uploadedFlag = true;
+          status = 'Submitted';
+        } else {
+          submitedFlag = records.some(
+            (item) => item.submitedBy === 'Facilitator',
+          );
+          if (submitedFlag) status = 'Approved';
+        }
+
+        finalResult.push({
+          userId,
+          uploadedFlag,
+          submitedFlag,
+          status,
+          records,
+        });
+      }
+
+      this.loggerService.log(
+        'Offline assessment already uploaded.',
+        apiId,
+        finalResult.toString(),
+      );
+      return APIResponse.success(
+        response,
+        apiId,
+        finalResult,
+        HttpStatus.OK,
+        'Offline assessment already uploaded.',
+      );
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(errorMessage, 'INTERNAL_SERVER_ERROR', apiId);
+      return APIResponse.error(
+        response,
+        apiId,
+        'Failed to check offline assessment upload status.',
+        errorMessage,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }

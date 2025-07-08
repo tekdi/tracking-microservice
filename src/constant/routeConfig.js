@@ -429,6 +429,18 @@
                 }
             ]
         },
-
+        {
+            "sourceRoute": "/interface/v1/tracking/ai-assessment/offline-assessment-status",
+            "type": "POST",
+            "priority": "MUST_HAVE",
+            "inSequence": false,
+            "orchestrated": false,
+            "targetPackages": [
+                {
+                    "basePackageName": "tracking",
+                    "packageName": "shiksha-tracking"
+                }
+            ]
+        }
     ]
 }
