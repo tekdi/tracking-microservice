@@ -1023,7 +1023,7 @@ export class TrackingAssessmentService {
       }
 
       this.loggerService.log(
-        'Offline assessment already uploaded.',
+        'Status of assessment fetched successfully.',
         apiId,
         finalResult.toString(),
       );
@@ -1032,7 +1032,7 @@ export class TrackingAssessmentService {
         apiId,
         finalResult,
         HttpStatus.OK,
-        'Offline assessment already uploaded.',
+        'Status of assessment fetched successfully.',
       );
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
@@ -1040,7 +1040,7 @@ export class TrackingAssessmentService {
       return APIResponse.error(
         response,
         apiId,
-        'Failed to check offline assessment upload status.',
+        'Failed to check offline assessment status.',
         errorMessage,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
