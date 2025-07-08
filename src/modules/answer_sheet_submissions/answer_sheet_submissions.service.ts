@@ -43,6 +43,7 @@ export class AnswerSheetSubmissionsService {
     private answerSheetSubmissionsRepository: Repository<AnswerSheetSubmissions>,
     private configService: ConfigService,
     private loggerService: LoggerService,
+    private dataSource: DataSource,
   ) {}
 
   public async getAnswerSheetSubmissionDetails(
@@ -100,7 +101,6 @@ export class AnswerSheetSubmissionsService {
       );
     }
   }
-
   public async findAnswerSheetSubmission(answerSheetSubmissionId: string) {
     const result = await this.answerSheetSubmissionsRepository.findOne({
       where: {
@@ -112,7 +112,6 @@ export class AnswerSheetSubmissionsService {
     }
     return false;
   }
-
   public async createAnswerSheetSubmission(
     request: any,
     createAnswerSheetSubmissionDto: AnswerSheetSubmissionsCreateDto,
@@ -199,7 +198,6 @@ export class AnswerSheetSubmissionsService {
       );
     }
   }
-
   public transformToInsertObject(
     input: AnswerSheetSubmissionsCreateDto,
     assessmentMode: 'ONLINE' | 'OFFLINE' = 'OFFLINE',
@@ -332,6 +330,58 @@ export class AnswerSheetSubmissionsService {
         errorMessage,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+  public async searchAnswerSheetSubmissions(
+    request: any,
+    searchFilter: any,
+    response: Response,
+  ) {
+    try {
+      const conditions = [];
+      const params = [];
+
+      if (searchFilter?.id) {
+        conditions.push(`"id" = $${params.length + 1}`);
+        params.push(searchFilter.id);
+      }
+
+      if (searchFilter?.userId) {
+        conditions.push(`"user_id" = $${params.length + 1}`);
+        params.push(searchFilter.userId);
+      }
+
+      if (searchFilter?.questionSetId) {
+        conditions.push(`"question_set_id" = $${params.length + 1}`);
+        params.push(searchFilter.questionSetId);
+      }
+
+      if (searchFilter?.status) {
+        conditions.push(`"status" = $${params.length + 1}`);
+        params.push(searchFilter.status);
+      }
+
+      const whereClause = conditions.length
+        ? `WHERE ${conditions.join(' AND ')}`
+        : '';
+
+      const result = await this.dataSource.query(
+        `SELECT * FROM answersheet_submissions ${whereClause} ORDER BY "created_at" DESC`,
+        params,
+      );
+
+      return response.status(200).send({
+        success: true,
+        message: 'success',
+        data: result,
+      });
+    } catch (error) {
+      const errorMessage = error.message || 'Internal Server Error';
+      return response.status(500).send({
+        success: false,
+        message: errorMessage,
+        data: [],
+      });
     }
   }
 }

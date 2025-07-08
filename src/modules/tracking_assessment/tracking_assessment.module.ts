@@ -5,13 +5,15 @@ import { AssessmentTracking } from 'src/modules/tracking_assessment/entities/tra
 import { AssessmentTrackingScoreDetail } from 'src/modules/tracking_assessment/entities/tracking-assessment-score-details-entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
-import { KafkaModule } from "src/kafka/kafka.module";
+import { KafkaModule } from 'src/kafka/kafka.module';
+import { AiAssessment } from '../ai_assessment/entities/ai-assessment-entity';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       AssessmentTracking,
       AssessmentTrackingScoreDetail,
+      AiAssessment,
     ]),
     KafkaModule,
   ],

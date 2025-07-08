@@ -68,18 +68,18 @@ export class AnswerSheetSubmissionsController {
     );
   }
 
-  // @Post('search')
-  // async searchAnswerSheetSubmission(
-  //   @Req() request: Request,
-  //   @Body() searchFilter: any,
-  //   @Res() response: Response,
-  // ) {
-  //   return this.answerSheetSubmissionsService.searchAnswerSheetSubmission(
-  //     request,
-  //     searchFilter,
-  //     response,
-  //   );
-  // }
+  @Post('search')
+  async searchAnswerSheetSubmission(
+    @Req() request: Request,
+    @Body() searchFilter: any,
+    @Res() response: Response,
+  ) {
+    return this.answerSheetSubmissionsService.searchAnswerSheetSubmissions(
+      request,
+      searchFilter,
+      response,
+    );
+  }
 
   // @Post('search/status')
   // async searchStatusAnswerSheetSubmission(

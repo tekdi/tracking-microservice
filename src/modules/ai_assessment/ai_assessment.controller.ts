@@ -64,18 +64,18 @@ export class AiAssessmentController {
     );
   }
 
-  // @Post('search')
-  // async searchAiAssessment(
-  //   @Req() request: Request,
-  //   @Body() searchFilter: any,
-  //   @Res() response: Response,
-  // ) {
-  //   return this.aiAssessmentService.searchAiAssessment(
-  //     request,
-  //     searchFilter,
-  //     response,
-  //   );
-  // }
+  @Post('search')
+  async searchAiAssessment(
+    @Req() request: Request,
+    @Body() searchFilter: any,
+    @Res() response: Response,
+  ) {
+    return this.aiAssessmentService.searchAiAssessment(
+      request,
+      searchFilter,
+      response,
+    );
+  }
 
   // @Post('search/status')
   // async searchStatusAiAssessment(
@@ -140,5 +140,16 @@ export class AiAssessmentController {
       responseMessage,
       response,
     );
+  }
+  //webhook to update questionset
+  @Post('update_question_set')
+  @ApiOkResponse({ description: 'AI Assessment status updated successfully.' })
+  @ApiNotFoundResponse({ description: 'AI Assessment Not Found.' })
+  @ApiBadRequestResponse({ description: 'Bad Request.' })
+  async updateQuestionSet(
+    @Body('questionSetId') questionSetId: string,
+    @Res() response: Response,
+  ) {
+    return this.aiAssessmentService.updateQuestionSet(questionSetId, response);
   }
 }

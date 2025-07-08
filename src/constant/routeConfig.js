@@ -389,7 +389,46 @@
                     "packageName": "shiksha-tracking"
                 }
             ]
-        }
+        },
+        {
+            "sourceRoute": "/interface/v1/tracking/answer-sheet-submissions/search",
+            "type": "POST",
+            "priority": "MUST_HAVE",
+            "inSequence": false,
+            "orchestrated": false,
+            "targetPackages": [
+                {
+                    "basePackageName": "tracking",
+                    "packageName": "shiksha-tracking"
+                }
+            ]
+        },
+        {
+            "sourceRoute": "/interface/v1/tracking/ai-assessment/search",
+            "type": "POST",
+            "priority": "MUST_HAVE",
+            "inSequence": false,
+            "orchestrated": false,
+            "targetPackages": [
+                {
+                    "basePackageName": "tracking",
+                    "packageName": "shiksha-tracking"
+                }
+            ]
+        },
+        {
+            "sourceRoute": "/interface/v1/tracking/ai-assessment/update_question_set",
+            "type": "POST",
+            "priority": "MUST_HAVE",
+            "inSequence": false,
+            "orchestrated": false,
+            "targetPackages": [
+                {
+                    "basePackageName": "tracking",
+                    "packageName": "shiksha-tracking"
+                }
+            ]
+        },
 
     ]
 }
