@@ -430,7 +430,7 @@
             ]
         },
         {
-            "sourceRoute": "/interface/v1/tracking/ai-assessment/offline-assessment-status",
+            "sourceRoute": "/interface/v1/tracking/assessment/offline-assessment-status",
             "type": "POST",
             "priority": "MUST_HAVE",
             "inSequence": false,
