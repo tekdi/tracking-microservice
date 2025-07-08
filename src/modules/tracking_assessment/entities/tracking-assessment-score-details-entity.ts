@@ -34,4 +34,7 @@ export class AssessmentTrackingScoreDetail {
 
   @Column()
   queTitle: string;
+
+  @Column()
+  feedback: string;
 }

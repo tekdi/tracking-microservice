@@ -68,18 +68,18 @@ export class AnswerSheetSubmissionsController {
     );
   }
 
-  // @Post('search')
-  // async searchAnswerSheetSubmission(
-  //   @Req() request: Request,
-  //   @Body() searchFilter: any,
-  //   @Res() response: Response,
-  // ) {
-  //   return this.answerSheetSubmissionsService.searchAnswerSheetSubmission(
-  //     request,
-  //     searchFilter,
-  //     response,
-  //   );
-  // }
+  @Post('search')
+  async searchAnswerSheetSubmission(
+    @Req() request: Request,
+    @Body() searchFilter: any,
+    @Res() response: Response,
+  ) {
+    return this.answerSheetSubmissionsService.searchAnswerSheetSubmissions(
+      request,
+      searchFilter,
+      response,
+    );
+  }
 
   // @Post('search/status')
   // async searchStatusAnswerSheetSubmission(
@@ -137,11 +137,13 @@ export class AnswerSheetSubmissionsController {
   async updateStatus(
     @Param('Id') Id: string,
     @Body('status') status: 'PROCESSING' | 'COMPLETED' | 'FAILED',
+    @Body('message') responseMessage: string,
     @Res() response: Response,
   ) {
     return this.answerSheetSubmissionsService.updateStatusByQuestionSetId(
       Id,
       status,
+      responseMessage,
       response,
     );
   }

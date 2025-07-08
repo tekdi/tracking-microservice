@@ -36,6 +36,9 @@ export class AnswerSheetSubmissions {
     userId: string;
   }>;
 
+  @Column({ name: 'response_message', nullable: true })
+  response_message: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

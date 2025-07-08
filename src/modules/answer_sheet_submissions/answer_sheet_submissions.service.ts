@@ -27,6 +27,7 @@ type TrackerInsertObject = {
   metadata: Record<string, any>;
   created_at: Date;
   resultsHistory: ResultHistoryItem[];
+  identifier?: string;
 };
 type ResultHistoryItem = {
   date: string;
@@ -42,6 +43,7 @@ export class AnswerSheetSubmissionsService {
     private answerSheetSubmissionsRepository: Repository<AnswerSheetSubmissions>,
     private configService: ConfigService,
     private loggerService: LoggerService,
+    private dataSource: DataSource,
   ) {}
 
   public async getAnswerSheetSubmissionDetails(
@@ -99,7 +101,6 @@ export class AnswerSheetSubmissionsService {
       );
     }
   }
-
   public async findAnswerSheetSubmission(answerSheetSubmissionId: string) {
     const result = await this.answerSheetSubmissionsRepository.findOne({
       where: {
@@ -111,7 +112,6 @@ export class AnswerSheetSubmissionsService {
     }
     return false;
   }
-
   public async createAnswerSheetSubmission(
     request: any,
     createAnswerSheetSubmissionDto: AnswerSheetSubmissionsCreateDto,
@@ -120,7 +120,10 @@ export class AnswerSheetSubmissionsService {
     const apiId = 'api.create.answerSheetSubmission';
     try {
       const existing = await this.answerSheetSubmissionsRepository.findOne({
-        where: { questionSetId: createAnswerSheetSubmissionDto.questionSetId },
+        where: {
+          questionSetId: createAnswerSheetSubmissionDto.questionSetId,
+          userId: createAnswerSheetSubmissionDto.userId,
+        },
       });
 
       if (existing) {
@@ -148,10 +151,21 @@ export class AnswerSheetSubmissionsService {
       delete result.resultsHistory;
       delete result.created_at;
       //call external API send result.id as identifier
+      // Call external AI API
+      // internal and external API objcet are same
+      result.identifier = result.id;
+      const generatedAssessmentResponse =
+        await this.callExternalAiApiForEvaluation(result);
+      console.log('generatedAssessmentResponse: ', generatedAssessmentResponse);
+      this.loggerService.log(
+        'External AI API called successfully.',
+        apiId,
+        result.id,
+      );
 
-      await this.answerSheetSubmissionsRepository.update(result.id, {
-        status: 'PROCESSING',
-      });
+      // await this.answerSheetSubmissionsRepository.update(result.id, {
+      //   status: 'PROCESSING',
+      // });
 
       if (result) {
         this.loggerService.log(
@@ -184,7 +198,6 @@ export class AnswerSheetSubmissionsService {
       );
     }
   }
-
   public transformToInsertObject(
     input: AnswerSheetSubmissionsCreateDto,
     assessmentMode: 'ONLINE' | 'OFFLINE' = 'OFFLINE',
@@ -199,10 +212,67 @@ export class AnswerSheetSubmissionsService {
       created_at: new Date(),
     };
   }
+  private async callExternalAiApiForEvaluation(
+    insertObject: TrackerInsertObject,
+  ): Promise<any> {
+    const apiUrl = this.configService.get<string>('AI_API_BASE_URL');
+    if (!apiUrl) {
+      throw new Error('AI_API_BASE_URL environment variable is not configured');
+    }
+
+    // Need to Add security token
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    try {
+      const response = await axios.post(
+        `${apiUrl}/answer-sheet-submission/`,
+        insertObject,
+        { headers },
+      );
+
+      this.loggerService.log(
+        'External AI API response received',
+        'callExternalAiApi',
+        insertObject.questionSetId,
+      );
+      console.log('response.data', response);
+      return response.data;
+    } catch (error) {
+      this.loggerService.error(
+        'External AI API call failed',
+        error.response?.data?.message || error.message,
+        'callExternalAiApi',
+        insertObject.questionSetId,
+      );
+      throw new Error(
+        `External AI API call failed: ${error.response?.data?.message || error.message}`,
+      );
+    }
+  }
+  // public transformToExternalApiObject(
+  //   input: AnswerSheetSubmissionsCreateDto,
+  // ): ExternalApiRequestObject {
+  //   return {
+  //     questionSetId: input.questionSetId,
+  //     framework: input.framework,
+  //     channel: input.channel,
+  //     difficulty_level: input.difficulty_level,
+  //     question_types: input.question_types,
+  //     metadata: input.metadata,
+  //     questionsDetails: input.questionsDetails,
+  //     content: input.content,
+  //     createdBy: input.createdBy,
+  //     tenantId: input.tenantId,
+  //     token: input.token,
+  //   };
+  // }
 
   public async updateStatusByQuestionSetId(
     Id: string,
     status: 'PROCESSING' | 'COMPLETED' | 'FAILED',
+    responseMessage,
     response: Response,
   ) {
     const apiId = 'api.update.answerSheetSubmissionStatus';
@@ -228,6 +298,7 @@ export class AnswerSheetSubmissionsService {
       }
 
       record.status = status;
+      record.response_message = responseMessage;
       await this.answerSheetSubmissionsRepository.save(record);
       delete record.metadata;
       delete record.resultsHistory;
@@ -259,6 +330,58 @@ export class AnswerSheetSubmissionsService {
         errorMessage,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+  public async searchAnswerSheetSubmissions(
+    request: any,
+    searchFilter: any,
+    response: Response,
+  ) {
+    try {
+      const conditions = [];
+      const params = [];
+
+      if (searchFilter?.id) {
+        conditions.push(`"id" = $${params.length + 1}`);
+        params.push(searchFilter.id);
+      }
+
+      if (searchFilter?.userId?.length) {
+        conditions.push(`"user_id" = ANY($${params.length + 1})`);
+        params.push(searchFilter.userId); // This should be an array
+      }
+
+      if (searchFilter?.questionSetId) {
+        conditions.push(`"question_set_id" = $${params.length + 1}`);
+        params.push(searchFilter.questionSetId);
+      }
+
+      if (searchFilter?.status) {
+        conditions.push(`"status" = $${params.length + 1}`);
+        params.push(searchFilter.status);
+      }
+
+      const whereClause = conditions.length
+        ? `WHERE ${conditions.join(' AND ')}`
+        : '';
+
+      const result = await this.dataSource.query(
+        `SELECT * FROM answersheet_submissions ${whereClause} ORDER BY "created_at" DESC`,
+        params,
+      );
+
+      return response.status(200).send({
+        success: true,
+        message: 'success',
+        data: result,
+      });
+    } catch (error) {
+      const errorMessage = error.message || 'Internal Server Error';
+      return response.status(500).send({
+        success: false,
+        message: errorMessage,
+        data: [],
+      });
     }
   }
 }
