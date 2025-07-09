@@ -835,6 +835,7 @@ export class TrackingAssessmentService {
     response: Response,
   ) {
     const apiId = 'api.delete.assessment';
+
     try {
       if (!isUUID(assessmentTrackingId)) {
         this.loggerService.error(

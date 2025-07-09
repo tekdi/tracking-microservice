@@ -128,7 +128,6 @@ export class TrackingAssessmentController {
       response,
     );
   }
-
   //Delete Assessment
   // @UseFilters(new AllExceptionsFilter())
   @Delete('delete/:assessmentTrackingId')
