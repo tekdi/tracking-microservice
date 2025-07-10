@@ -19,7 +19,8 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
 import { KafkaService } from 'src/kafka/kafka.service';
-
+import { AiAssessment } from '../ai_assessment/entities/ai-assessment-entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class TrackingAssessmentService {
@@ -29,6 +30,8 @@ export class TrackingAssessmentService {
     private assessmentTrackingRepository: Repository<AssessmentTracking>,
     @InjectRepository(AssessmentTrackingScoreDetail)
     private assessmentTrackingScoreDetailRepository: Repository<AssessmentTrackingScoreDetail>,
+    @InjectRepository(AiAssessment)
+    private aiAssessmentRepository: Repository<AiAssessment>,
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private dataSource: DataSource,
@@ -154,6 +157,7 @@ export class TrackingAssessmentService {
         'totalScore',
         'timeSpent',
         'unitId',
+        'submitedBy',
       ];
       const errors = await this.validateCreateDTO(
         allowedKeys,
@@ -191,7 +195,40 @@ export class TrackingAssessmentService {
           HttpStatus.BAD_REQUEST,
         );
       }
-
+      // for offline support
+      //----------------------------------------------------------------------
+      //check submitedBy
+      if (
+        !createAssessmentTrackingDto.submitedBy ||
+        createAssessmentTrackingDto.submitedBy === ''
+      ) {
+        createAssessmentTrackingDto.submitedBy = 'Other';
+      } else {
+        const allowedValues = [
+          'AI Evaluator',
+          'Learner',
+          'Facilitator',
+          'Other',
+        ];
+        if (!allowedValues.includes(createAssessmentTrackingDto.submitedBy)) {
+          createAssessmentTrackingDto.submitedBy = 'Other';
+        }
+      }
+      //fetch contentId and check in the table answersheet_submissions fetch record and check  if exists then put show flag as false
+      const existingAIAssessment = await this.aiAssessmentRepository.findOne({
+        where: {
+          question_set_id: createAssessmentTrackingDto.contentId,
+        },
+      });
+      console.log(existingAIAssessment);
+      if (existingAIAssessment) {
+        if (createAssessmentTrackingDto.submitedBy == 'Facilitator')
+          createAssessmentTrackingDto.showFlag = true;
+        else createAssessmentTrackingDto.showFlag = false;
+      } else {
+        createAssessmentTrackingDto.showFlag = true;
+      }
+      //--------------------------------------------------------------------------
       const result = await this.assessmentTrackingRepository.save(
         createAssessmentTrackingDto,
       );
@@ -219,6 +256,7 @@ export class TrackingAssessmentService {
                 score: dataItem?.score,
                 maxScore: dataItem?.item?.maxscore,
                 queTitle: dataItem?.item?.title,
+                feedback: dataItem?.resvalues[0]?.AI_suggestion,
               });
             }
           }
@@ -236,7 +274,7 @@ export class TrackingAssessmentService {
         createAssessmentTrackingDto.userId,
       );
 
-      this.publishTrackingEvent('created', result.assessmentTrackingId, apiId)
+      this.publishTrackingEvent('created', result.assessmentTrackingId, apiId);
 
       return APIResponse.success(
         response,
@@ -263,7 +301,7 @@ export class TrackingAssessmentService {
     }
   }
 
-  public async searchAssessmentTracking(
+  public async searchAssessmentTrackingold(
     request: any,
     searchFilter: any,
     response: Response,
@@ -288,6 +326,80 @@ export class TrackingAssessmentService {
         temp_result.score_details = result_score;
         output_result.push(temp_result);
       }
+      this.loggerService.log('success', 'searchAssessmentTracking');
+      return response.status(200).send({
+        success: true,
+        message: 'success',
+        data: output_result,
+      });
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        errorMessage,
+        'searchAssessmentTracking',
+      );
+      return response.status(500).send({
+        success: false,
+        message: errorMessage,
+        data: {},
+      });
+    }
+  }
+  public async searchAssessmentTracking(
+    request: any,
+    searchFilter: any,
+    response: Response,
+  ) {
+    try {
+      let output_result = [];
+
+      // Dynamically build WHERE clause and params
+      const conditions = [];
+      const params = [];
+
+      if (searchFilter?.userId) {
+        conditions.push(`"userId" = $${params.length + 1}`);
+        params.push(searchFilter.userId);
+      }
+
+      if (searchFilter?.contentId) {
+        conditions.push(`"contentId" = $${params.length + 1}`);
+        params.push(searchFilter.contentId);
+      }
+
+      if (searchFilter?.courseId) {
+        conditions.push(`"courseId" = $${params.length + 1}`);
+        params.push(searchFilter.courseId);
+      }
+
+      if (searchFilter?.unitId) {
+        conditions.push(`"unitId" = $${params.length + 1}`);
+        params.push(searchFilter.unitId);
+      }
+      // Always add condition to exclude showFlag = false
+      conditions.push(`"showFlag" IS DISTINCT FROM false`);
+
+      const whereClause =
+        conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      const result = await this.dataSource.query(
+        `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId"
+         FROM assessment_tracking ${whereClause}`,
+        params,
+      );
+
+      for (const tracking of result) {
+        const result_score = await this.dataSource.query(
+          `SELECT "questionId", "pass", "sectionId", "resValue", "duration", "score", "maxScore", "queTitle"
+           FROM assessment_tracking_score_detail WHERE "assessmentTrackingId" = $1`,
+          [tracking.assessmentTrackingId],
+        );
+
+        tracking.score_details = result_score;
+        output_result.push(tracking);
+      }
+
       this.loggerService.log('success', 'searchAssessmentTracking');
       return response.status(200).send({
         success: true,
@@ -659,7 +771,10 @@ export class TrackingAssessmentService {
 
       const [result, total] =
         await this.assessmentTrackingRepository.findAndCount({
-          where: whereClause,
+          where: {
+            ...whereClause,
+            showFlag: Not(false),
+          },
           order: orderOption,
           skip: offset,
           take: limit,
@@ -720,6 +835,7 @@ export class TrackingAssessmentService {
     response: Response,
   ) {
     const apiId = 'api.delete.assessment';
+
     try {
       if (!isUUID(assessmentTrackingId)) {
         this.loggerService.error(
@@ -803,41 +919,135 @@ export class TrackingAssessmentService {
   private async publishTrackingEvent(
     eventType: 'created' | 'updated' | 'deleted',
     assessmentTrackingId: string,
-    apiId: string
+    apiId: string,
   ): Promise<void> {
     try {
       let trackingData: any = {};
-      
+
       if (eventType === 'deleted') {
         trackingData = {
           assessmentTrackingId,
-          deletedAt: new Date().toISOString()
+          deletedAt: new Date().toISOString(),
         };
       } else {
         try {
-          const assessmentData = await this.assessmentTrackingRepository.findOne({
-            where: { assessmentTrackingId }
-          });
-  
-          const assessmentScoreData = await this.assessmentTrackingScoreDetailRepository.find({
-            where: { assessmentTrackingId }
-          });
-  
+          const assessmentData =
+            await this.assessmentTrackingRepository.findOne({
+              where: { assessmentTrackingId },
+            });
+
+          const assessmentScoreData =
+            await this.assessmentTrackingScoreDetailRepository.find({
+              where: { assessmentTrackingId },
+            });
+
           trackingData = {
             ...assessmentData,
-            scores: assessmentScoreData
+            scores: assessmentScoreData,
           };
         } catch (error) {
           trackingData = { assessmentTrackingId };
         }
       }
-      
+
       console.log(trackingData);
-      
-      await this.kafkaService.publishTrackingEvent(eventType, trackingData, assessmentTrackingId);
+
+      await this.kafkaService.publishTrackingEvent(
+        eventType,
+        trackingData,
+        assessmentTrackingId,
+      );
     } catch (error) {
       // Handle/log error silently
     }
   }
-  
+  public async offlineAssessmentCheck(
+    request: any,
+    object: any,
+    response: Response,
+  ) {
+    const apiId = 'api.offline.assessment.check';
+    try {
+      const result = await this.assessmentTrackingRepository.find({
+        where: {
+          userId: In(object.userIds),
+          contentId: object.questionSetId,
+        },
+      });
+
+      if (result.length === 0) {
+        this.loggerService.log(
+          'No offline assessment records found.',
+          apiId,
+          object,
+        );
+        return APIResponse.success(
+          response,
+          apiId,
+          { status: false },
+          HttpStatus.OK,
+          'No offline assessment records found.',
+        );
+      }
+      const groupedByUser = new Map<string, typeof result>();
+
+      for (const item of result) {
+        if (!groupedByUser.has(item.userId)) {
+          groupedByUser.set(item.userId, []);
+        }
+        groupedByUser.get(item.userId).push(item);
+      }
+      const finalResult = [];
+
+      for (const [userId, records] of groupedByUser.entries()) {
+        let uploadedFlag = false;
+        let submitedFlag = false;
+        let status;
+
+        if (records.length === 1 && records[0].submitedBy === 'AI Evaluator') {
+          uploadedFlag = true;
+          status = 'Submitted';
+        } else {
+          submitedFlag = records.some(
+            (item) => item.submitedBy === 'Facilitator',
+          );
+          if (submitedFlag) status = 'Approved';
+        }
+
+        finalResult.push({
+          userId,
+          uploadedFlag,
+          submitedFlag,
+          status,
+          records,
+        });
+      }
+
+      this.loggerService.log(
+        'Status of assessment fetched successfully.',
+        apiId,
+        finalResult.toString(),
+      );
+      return APIResponse.success(
+        response,
+        apiId,
+        finalResult,
+        HttpStatus.OK,
+        'Status of assessment fetched successfully.',
+      );
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(errorMessage, 'INTERNAL_SERVER_ERROR', apiId);
+      return APIResponse.error(
+        response,
+        apiId,
+        'Failed to check offline assessment status.',
+        errorMessage,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+}
+function Not(arg0: boolean): boolean | import('typeorm').FindOperator<boolean> {
+  throw new Error('Function not implemented.');
 }

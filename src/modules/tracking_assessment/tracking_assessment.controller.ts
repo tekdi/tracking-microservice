@@ -28,6 +28,7 @@ import { CreateAssessmentTrackingDto } from './dto/tracking-assessment-create-dt
 import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dto';
 import { TrackingAssessmentService } from './tracking_assessment.service';
 import { CacheInterceptor } from '@nestjs/cache-manager';
+import { CheckSubmissionStatusDto } from '../ai_assessment/dto/check-submission-status-dto';
 //import { AllExceptionsFilter } from 'src/common/utils/exception.filter';
 
 @Controller('assessment')
@@ -127,7 +128,6 @@ export class TrackingAssessmentController {
       response,
     );
   }
-
   //Delete Assessment
   // @UseFilters(new AllExceptionsFilter())
   @Delete('delete/:assessmentTrackingId')
@@ -143,6 +143,24 @@ export class TrackingAssessmentController {
     return this.trackingAssessmentService.deleteAssessmentTracking(
       request,
       assessmentTrackingId,
+      response,
+    );
+  }
+  //check offline assessment uploaded
+  //Search Assessment
+  //@UseFilters(new AllExceptionsFilter())
+  @Post('/offline-assessment-status')
+  @ApiOkResponse({ description: ' ' })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error' })
+  @ApiBadRequestResponse({ description: 'Bad Request' })
+  async offlineAssessmentCheck(
+    @Req() request: Request,
+    @Body() object: CheckSubmissionStatusDto,
+    @Res() response: Response,
+  ) {
+    return this.trackingAssessmentService.offlineAssessmentCheck(
+      request,
+      object,
       response,
     );
   }

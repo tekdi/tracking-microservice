@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity({ name: "assessment_tracking" })
+@Entity({ name: 'assessment_tracking' })
 export class AssessmentTracking {
   @PrimaryGeneratedColumn('uuid')
   assessmentTrackingId: string;
@@ -17,7 +17,10 @@ export class AssessmentTracking {
   @Column()
   attemptId: string;
 
-  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({
+    type: 'timestamp with time zone',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   createdOn: Date;
 
   // @Column()
@@ -43,4 +46,11 @@ export class AssessmentTracking {
 
   @Column()
   unitId: string;
+
+  @Column()
+  showFlag: boolean;
+
+  //submitedBy must be in [AI Evaluator, Learner, Facilator, Other] if any other value then stored as Other
+  @Column()
+  submitedBy: string;
 }
