@@ -20,6 +20,7 @@ import { DataSource } from 'typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
 import { KafkaService } from 'src/kafka/kafka.service';
 import { AiAssessment } from '../ai_assessment/entities/ai-assessment-entity';
+import { AnswerSheetSubmissions } from 'src/modules/answer_sheet_submissions/entities/answer-sheet-submissions-entity';
 import { In } from 'typeorm';
 
 @Injectable()
@@ -32,6 +33,8 @@ export class TrackingAssessmentService {
     private assessmentTrackingScoreDetailRepository: Repository<AssessmentTrackingScoreDetail>,
     @InjectRepository(AiAssessment)
     private aiAssessmentRepository: Repository<AiAssessment>,
+    @InjectRepository(AnswerSheetSubmissions)
+    private answersheetSubmissionRepository: Repository<AnswerSheetSubmissions>,
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private dataSource: DataSource,
@@ -974,8 +977,22 @@ export class TrackingAssessmentService {
           contentId: object.questionSetId,
         },
       });
-
-      if (result.length === 0) {
+      const answersheetSubmissionResponse =
+        await this.answersheetSubmissionRepository.find({
+          where: {
+            userId: In(object.userIds),
+            questionSetId: object.questionSetId,
+          },
+        });
+      console.log('result: ', result);
+      const questionsetPendingFromAI =
+        !result || result.length === 0
+          ? answersheetSubmissionResponse
+          : answersheetSubmissionResponse.filter(
+              (item) => !result.some((r) => r.userId === item.userId),
+            );
+      console.log('questionsetPendingFromAI: ', questionsetPendingFromAI);
+      if (result.length === 0 && questionsetPendingFromAI.length === 0) {
         this.loggerService.log(
           'No offline assessment records found.',
           apiId,
@@ -984,42 +1001,62 @@ export class TrackingAssessmentService {
         return APIResponse.success(
           response,
           apiId,
-          { status: false },
+          [],
           HttpStatus.OK,
           'No offline assessment records found.',
         );
       }
-      const groupedByUser = new Map<string, typeof result>();
+      let finalResult = [];
+      if (result.length > 0) {
+        const groupedByUser = new Map<string, typeof result>();
 
-      for (const item of result) {
-        if (!groupedByUser.has(item.userId)) {
-          groupedByUser.set(item.userId, []);
+        for (const item of result) {
+          if (!groupedByUser.has(item.userId)) {
+            groupedByUser.set(item.userId, []);
+          }
+          groupedByUser.get(item.userId).push(item);
         }
-        groupedByUser.get(item.userId).push(item);
+
+        for (const [userId, records] of groupedByUser.entries()) {
+          let uploadedFlag = false;
+          let submitedFlag = false;
+          let status;
+
+          if (
+            records.length === 1 &&
+            records[0].submitedBy === 'AI Evaluator'
+          ) {
+            uploadedFlag = true;
+            status = 'AI Processed';
+          } else {
+            submitedFlag = records.some(
+              (item) => item.submitedBy === 'Facilitator',
+            );
+            if (submitedFlag) status = 'Approved';
+          }
+
+          finalResult.push({
+            userId,
+            uploadedFlag,
+            submitedFlag,
+            status,
+            records,
+            fileUrls: answersheetSubmissionResponse.flatMap(
+              (item) => item.fileUrls,
+            ),
+          });
+        }
       }
-      const finalResult = [];
-
-      for (const [userId, records] of groupedByUser.entries()) {
-        let uploadedFlag = false;
-        let submitedFlag = false;
-        let status;
-
-        if (records.length === 1 && records[0].submitedBy === 'AI Evaluator') {
-          uploadedFlag = true;
-          status = 'Submitted';
-        } else {
-          submitedFlag = records.some(
-            (item) => item.submitedBy === 'Facilitator',
-          );
-          if (submitedFlag) status = 'Approved';
-        }
-
-        finalResult.push({
-          userId,
-          uploadedFlag,
-          submitedFlag,
-          status,
-          records,
+      if (questionsetPendingFromAI.length > 0) {
+        questionsetPendingFromAI.forEach((item) => {
+          finalResult.push({
+            userId: item.userId,
+            uploadedFlag: false,
+            submitedFlag: false,
+            status: 'AI Pending',
+            records: [item],
+            fileUrls: [item.fileUrls],
+          });
         });
       }
 
