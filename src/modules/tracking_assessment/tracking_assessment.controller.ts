@@ -122,6 +122,9 @@ export class TrackingAssessmentController {
     @Body() searchAssessmentTrackingDto: SearchAssessmentTrackingDto,
     @Res() response: Response,
   ) {
+    console.log(
+      'searchAssessmentRecords: ' + JSON.stringify(searchAssessmentTrackingDto),
+    );
     return this.trackingAssessmentService.searchAssessmentRecords(
       request,
       searchAssessmentTrackingDto,
