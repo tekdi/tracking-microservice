@@ -1055,7 +1055,7 @@ export class TrackingAssessmentService {
             submitedFlag: false,
             status: 'AI Pending',
             records: [item],
-            fileUrls: [item.fileUrls],
+            fileUrls: item.fileUrls,
           });
         });
       }
