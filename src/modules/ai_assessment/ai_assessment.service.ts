@@ -393,11 +393,12 @@ export class AiAssessmentService {
     // Need to Add security token
     const headers = {
       'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + this.configService.get<string>('TOKEN'),
     };
 
     try {
       const response = await axios.post(
-        `${apiUrl}/request-questions/`,
+        `${apiUrl}/request-questions`,
         insertObject,
         { headers },
       );
@@ -426,10 +427,29 @@ export class AiAssessmentService {
    */
   async updateQuestionSet(questionSetId, response: Response): Promise<any> {
     const apiUrl = this.configService.get<string>('AI_API_BASE_URL');
+    //check assessmnet is created by AI ?
+    const record = await this.aiAssessmentRepository.findOne({
+      where: { question_set_id: questionSetId },
+    });
+    if (!record) {
+      this.loggerService.error(
+        'No AI Assessment found for the given Question Set Id for updating questionset mode',
+        'NOT_FOUND',
+        'api.update.questionSet',
+        questionSetId,
+      );
+      return APIResponse.error(
+        response,
+        'api.update.questionSet',
+        'No AI Assessment found for the given Question Set Id for updating questionset mode',
+        'NOT_FOUND',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
     if (!apiUrl) {
       throw new Error('AI_API_BASE_URL environment variable is not configured');
     }
-
     // Need to Add security token
     const headers = {
       'Content-Type': 'application/json',
@@ -447,6 +467,52 @@ export class AiAssessmentService {
         'callExternalAiApi',
         questionSetId,
       );
+      //update assessment mode by checking qtype
+      const qTypes = await this.fetchQTypes(questionSetId);
+      if (qTypes.length > 0) {
+        let assessment_mode; // Default to ONLINE
+        if (qTypes.includes('SA')) {
+          assessment_mode = 'OFFLINE';
+        } else {
+          assessment_mode = 'ONLINE';
+        }
+        try {
+          if (record.assessment_mode !== assessment_mode) {
+            // Update if they are different
+            console.log('Assessment modes are different');
+            record.assessment_mode = assessment_mode;
+            await this.aiAssessmentRepository.save(record);
+          }
+          this.loggerService.log(
+            'AI Assessment status updated successfully.',
+            'api.update.questionSet',
+            record.id,
+          );
+          return APIResponse.success(
+            response,
+            'api.update.questionSet',
+            record,
+            HttpStatus.OK,
+            'AI Assessment status updated successfully.',
+          );
+        } catch (e) {
+          const errorMessage = e.message || 'Internal Server Error';
+          this.loggerService.error(
+            'Something went wrong while updating AI assessment status',
+            errorMessage,
+            'api.update.questionSet',
+            questionSetId,
+          );
+          return APIResponse.error(
+            response,
+            'api.update.questionSet',
+            'Something went wrong while updating AI assessment status',
+            errorMessage,
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+      }
+
       return APIResponse.success(
         response,
         'api.update.questionSet',
@@ -465,5 +531,43 @@ export class AiAssessmentService {
         `External AI API call failed: ${error.response?.data?.message || error.message}`,
       );
     }
+  }
+  async fetchQTypes(questionSetId: string): Promise<string[]> {
+    const apiUrl =
+      this.configService.get<string>('MIDDLEWARE_SERVICE_BASE_URL') +
+      '/action/questionset/v2/hierarchy/' +
+      questionSetId +
+      '?mode=edit';
+    try {
+      const response = await axios.get(apiUrl, {
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const questionset = response.data?.result?.questionset;
+      const qTypes = this.extractQTypes(questionset?.children || []);
+      return qTypes;
+    } catch (error) {
+      console.error('Error fetching question set:', error.message);
+      throw error;
+    }
+  }
+
+  private extractQTypes(
+    nodes: any[],
+    qTypes: Set<string> = new Set(),
+  ): string[] {
+    for (const node of nodes) {
+      if (node.objectType === 'Question' && node.qType) {
+        qTypes.add(node.qType);
+      }
+
+      if (Array.isArray(node.children)) {
+        this.extractQTypes(node.children, qTypes);
+      }
+    }
+    return Array.from(qTypes);
   }
 }

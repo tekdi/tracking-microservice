@@ -21,7 +21,7 @@ import { LoggerService } from 'src/common/logger/logger.service';
 import { KafkaService } from 'src/kafka/kafka.service';
 import { AiAssessment } from '../ai_assessment/entities/ai-assessment-entity';
 import { AnswerSheetSubmissions } from 'src/modules/answer_sheet_submissions/entities/answer-sheet-submissions-entity';
-import { In } from 'typeorm';
+import { In, Not } from 'typeorm';
 
 @Injectable()
 export class TrackingAssessmentService {
@@ -205,33 +205,29 @@ export class TrackingAssessmentService {
         !createAssessmentTrackingDto.submitedBy ||
         createAssessmentTrackingDto.submitedBy === ''
       ) {
-        createAssessmentTrackingDto.submitedBy = 'Other';
+        createAssessmentTrackingDto.submitedBy = 'Online';
       } else {
-        const allowedValues = [
-          'AI Evaluator',
-          'Learner',
-          'Facilitator',
-          'Other',
-        ];
+        const allowedValues = ['AI Evaluator', 'Online', 'Manual'];
         if (!allowedValues.includes(createAssessmentTrackingDto.submitedBy)) {
-          createAssessmentTrackingDto.submitedBy = 'Other';
+          createAssessmentTrackingDto.submitedBy = 'Online';
         }
       }
-      //fetch contentId and check in the table answersheet_submissions fetch record and check  if exists then put show flag as false
+      //Check in the table answersheet_submissions fetch record
+      //if exists then put show flag as false
       const existingAIAssessment = await this.aiAssessmentRepository.findOne({
         where: {
           question_set_id: createAssessmentTrackingDto.contentId,
         },
       });
-      console.log(existingAIAssessment);
+      //showFlag is for AI assessment show to the learner
       if (existingAIAssessment) {
-        if (createAssessmentTrackingDto.submitedBy == 'Facilitator')
+        if (createAssessmentTrackingDto.submitedBy == 'Manual')
           createAssessmentTrackingDto.showFlag = true;
         else createAssessmentTrackingDto.showFlag = false;
       } else {
         createAssessmentTrackingDto.showFlag = true;
       }
-      //--------------------------------------------------------------------------
+      //--------------------------------------------------------------------------//
       const result = await this.assessmentTrackingRepository.save(
         createAssessmentTrackingDto,
       );
@@ -1007,6 +1003,7 @@ export class TrackingAssessmentService {
         );
       }
       let finalResult = [];
+      const bucketUrl = 'https://' + this.configService.get('AWS_BUCKET_NAME');
       if (result.length > 0) {
         const groupedByUser = new Map<string, typeof result>();
 
@@ -1024,16 +1021,20 @@ export class TrackingAssessmentService {
 
           if (
             records.length === 1 &&
-            records[0].submitedBy === 'AI Evaluator'
+            records[0].evaluatedBy === 'AI Evaluator'
           ) {
             uploadedFlag = true;
             status = 'AI Processed';
           } else {
             submitedFlag = records.some(
-              (item) => item.submitedBy === 'Facilitator',
+              (item) => item.evaluatedBy === 'Manual',
             );
             if (submitedFlag) status = 'Approved';
           }
+
+          const finalFileUrls = answersheetSubmissionResponse.flatMap((item) =>
+            item.fileUrls.map((filePath: string) => `${bucketUrl}/${filePath}`),
+          );
 
           finalResult.push({
             userId,
@@ -1041,21 +1042,23 @@ export class TrackingAssessmentService {
             submitedFlag,
             status,
             records,
-            fileUrls: answersheetSubmissionResponse.flatMap(
-              (item) => item.fileUrls,
-            ),
+            fileUrls: finalFileUrls,
           });
         }
       }
       if (questionsetPendingFromAI.length > 0) {
         questionsetPendingFromAI.forEach((item) => {
+          let fileUrls = item.fileUrls.map((filePath: string) => {
+            return `${bucketUrl}/${filePath}`;
+          });
+          item.fileUrls = fileUrls;
           finalResult.push({
             userId: item.userId,
             uploadedFlag: false,
             submitedFlag: false,
             status: 'AI Pending',
             records: [item],
-            fileUrls: item.fileUrls,
+            fileUrls: fileUrls,
           });
         });
       }
@@ -1084,7 +1087,4 @@ export class TrackingAssessmentService {
       );
     }
   }
-}
-function Not(arg0: boolean): boolean | import('typeorm').FindOperator<boolean> {
-  throw new Error('Function not implemented.');
 }

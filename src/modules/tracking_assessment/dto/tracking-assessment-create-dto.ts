@@ -111,6 +111,7 @@ export class CreateAssessmentTrackingDto {
   showFlag?: boolean;
 
   @IsString()
+  @IsOptional()
   submitedBy: string;
 
   constructor(obj?: Partial<CreateAssessmentTrackingDto>) {

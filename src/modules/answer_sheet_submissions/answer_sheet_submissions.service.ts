@@ -18,6 +18,7 @@ import { KafkaService } from 'src/kafka/kafka.service';
 import { AnswerSheetSubmissions } from './entities/answer-sheet-submissions-entity';
 import { AnswerSheetSubmissionsCreateDto } from './dto/answer-sheet-submissions-create-dto';
 import axios from 'axios';
+import { SubmitAssessmentToAiDto } from '../ai_assessment/dto/submit_assessment_to_ai.dto';
 
 type TrackerInsertObject = {
   questionSetId: string;
@@ -147,15 +148,20 @@ export class AnswerSheetSubmissionsService {
       );
       const result =
         await this.answerSheetSubmissionsRepository.save(insertObject);
-      delete result.metadata;
-      delete result.resultsHistory;
-      delete result.created_at;
+      let payload: SubmitAssessmentToAiDto = {
+        questionSetId: result.questionSetId,
+        userId: result.userId,
+        fileUrls: createAnswerSheetSubmissionDto.fileUrls,
+        identifier: result.id,
+      };
+
       //call external API send result.id as identifier
       // Call external AI API
       // internal and external API objcet are same
-      result.identifier = result.id;
+
+      this.loggerService.log('request for API: ', apiId);
       const generatedAssessmentResponse =
-        await this.callExternalAiApiForEvaluation(result);
+        await this.callExternalAiApiForEvaluation(payload);
       console.log('generatedAssessmentResponse: ', generatedAssessmentResponse);
       this.loggerService.log(
         'External AI API called successfully.',
@@ -202,10 +208,14 @@ export class AnswerSheetSubmissionsService {
     input: AnswerSheetSubmissionsCreateDto,
     assessmentMode: 'ONLINE' | 'OFFLINE' = 'OFFLINE',
   ): TrackerInsertObject {
+    let fileUrls = input.fileUrls.map((url) => {
+      const urlObj = new URL(url);
+      return urlObj.pathname.slice(1); // removes the leading '/'
+    });
     return {
       questionSetId: input.questionSetId,
       userId: input.userId,
-      fileUrls: input.fileUrls,
+      fileUrls: fileUrls,
       status: 'RECEIVED',
       metadata: input.metadata,
       resultsHistory: input.resultsHistory,
@@ -213,7 +223,7 @@ export class AnswerSheetSubmissionsService {
     };
   }
   private async callExternalAiApiForEvaluation(
-    insertObject: TrackerInsertObject,
+    insertObject: SubmitAssessmentToAiDto,
   ): Promise<any> {
     const apiUrl = this.configService.get<string>('AI_API_BASE_URL');
     if (!apiUrl) {
@@ -223,6 +233,7 @@ export class AnswerSheetSubmissionsService {
     // Need to Add security token
     const headers = {
       'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + this.configService.get<string>('TOKEN'),
     };
 
     try {
@@ -237,7 +248,7 @@ export class AnswerSheetSubmissionsService {
         'callExternalAiApi',
         insertObject.questionSetId,
       );
-      console.log('response.data', response);
+      console.log('response.data', response.data);
       return response.data;
     } catch (error) {
       this.loggerService.error(
@@ -251,23 +262,6 @@ export class AnswerSheetSubmissionsService {
       );
     }
   }
-  // public transformToExternalApiObject(
-  //   input: AnswerSheetSubmissionsCreateDto,
-  // ): ExternalApiRequestObject {
-  //   return {
-  //     questionSetId: input.questionSetId,
-  //     framework: input.framework,
-  //     channel: input.channel,
-  //     difficulty_level: input.difficulty_level,
-  //     question_types: input.question_types,
-  //     metadata: input.metadata,
-  //     questionsDetails: input.questionsDetails,
-  //     content: input.content,
-  //     createdBy: input.createdBy,
-  //     tenantId: input.tenantId,
-  //     token: input.token,
-  //   };
-  // }
 
   public async updateStatusByQuestionSetId(
     Id: string,
