@@ -18,7 +18,6 @@ import { KafkaService } from 'src/kafka/kafka.service';
 import { AnswerSheetSubmissions } from './entities/answer-sheet-submissions-entity';
 import { AnswerSheetSubmissionsCreateDto } from './dto/answer-sheet-submissions-create-dto';
 import axios from 'axios';
-import { identity } from 'rxjs';
 import { SubmitAssessmentToAiDto } from '../ai_assessment/dto/submit_assessment_to_ai.dto';
 
 type TrackerInsertObject = {
@@ -213,7 +212,6 @@ export class AnswerSheetSubmissionsService {
       const urlObj = new URL(url);
       return urlObj.pathname.slice(1); // removes the leading '/'
     });
-    console.log('fileUrls: ', fileUrls);
     return {
       questionSetId: input.questionSetId,
       userId: input.userId,
