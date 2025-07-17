@@ -8,7 +8,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { AssessmentTracking } from 'src/modules/tracking_assessment/entities/tracking-assessment-entity';
 import { AssessmentTrackingScoreDetail } from 'src/modules/tracking_assessment/entities/tracking-assessment-score-details-entity';
 import { Repository } from 'typeorm';
-import { CreateAssessmentTrackingDto } from './dto/tracking-assessment-create-dto';
+import {
+  CreateAssessmentTrackingDto,
+  EvaluationType,
+} from './dto/tracking-assessment-create-dto';
 import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
 import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dto';
@@ -207,7 +210,7 @@ export class TrackingAssessmentService {
       ) {
         createAssessmentTrackingDto.submitedBy = 'Online';
       } else {
-        const allowedValues = ['AI Evaluator', 'Online', 'Manual'];
+        const allowedValues = ['AI', 'Online', 'Manual'];
         if (!allowedValues.includes(createAssessmentTrackingDto.submitedBy)) {
           createAssessmentTrackingDto.submitedBy = 'Online';
         }
@@ -227,8 +230,10 @@ export class TrackingAssessmentService {
       } else {
         createAssessmentTrackingDto.showFlag = true;
       }
+      createAssessmentTrackingDto.evaluatedBy =
+        createAssessmentTrackingDto.submitedBy as EvaluationType;
       //--------------------------------------------------------------------------//
-      const result = await this.assessmentTrackingRepository.save(
+      const result: any = await this.assessmentTrackingRepository.save(
         createAssessmentTrackingDto,
       );
       //save score details
@@ -1019,10 +1024,7 @@ export class TrackingAssessmentService {
           let submitedFlag = false;
           let status;
 
-          if (
-            records.length === 1 &&
-            records[0].evaluatedBy === 'AI Evaluator'
-          ) {
+          if (records.length === 1 && records[0].evaluatedBy === 'AI') {
             uploadedFlag = true;
             status = 'AI Processed';
           } else {
@@ -1032,7 +1034,12 @@ export class TrackingAssessmentService {
             if (submitedFlag) status = 'Approved';
           }
 
-          const finalFileUrls = answersheetSubmissionResponse.flatMap((item) =>
+          let userAnswerSheetRecords = answersheetSubmissionResponse.filter(
+            (item) => {
+              return item.userId === userId;
+            },
+          );
+          const finalFileUrls = userAnswerSheetRecords.flatMap((item) =>
             item.fileUrls.map((filePath: string) => `${bucketUrl}/${filePath}`),
           );
 
