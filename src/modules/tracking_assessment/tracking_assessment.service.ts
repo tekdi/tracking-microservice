@@ -8,7 +8,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { AssessmentTracking } from 'src/modules/tracking_assessment/entities/tracking-assessment-entity';
 import { AssessmentTrackingScoreDetail } from 'src/modules/tracking_assessment/entities/tracking-assessment-score-details-entity';
 import { Repository } from 'typeorm';
-import { CreateAssessmentTrackingDto } from './dto/tracking-assessment-create-dto';
+import {
+  CreateAssessmentTrackingDto,
+  EvaluationType,
+} from './dto/tracking-assessment-create-dto';
 import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
 import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dto';
@@ -20,7 +23,8 @@ import { DataSource } from 'typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
 import { KafkaService } from 'src/kafka/kafka.service';
 import { AiAssessment } from '../ai_assessment/entities/ai-assessment-entity';
-import { In } from 'typeorm';
+import { AnswerSheetSubmissions } from 'src/modules/answer_sheet_submissions/entities/answer-sheet-submissions-entity';
+import { In, Not } from 'typeorm';
 
 @Injectable()
 export class TrackingAssessmentService {
@@ -32,6 +36,8 @@ export class TrackingAssessmentService {
     private assessmentTrackingScoreDetailRepository: Repository<AssessmentTrackingScoreDetail>,
     @InjectRepository(AiAssessment)
     private aiAssessmentRepository: Repository<AiAssessment>,
+    @InjectRepository(AnswerSheetSubmissions)
+    private answersheetSubmissionRepository: Repository<AnswerSheetSubmissions>,
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private dataSource: DataSource,
@@ -202,34 +208,32 @@ export class TrackingAssessmentService {
         !createAssessmentTrackingDto.submitedBy ||
         createAssessmentTrackingDto.submitedBy === ''
       ) {
-        createAssessmentTrackingDto.submitedBy = 'Other';
+        createAssessmentTrackingDto.submitedBy = 'Online';
       } else {
-        const allowedValues = [
-          'AI Evaluator',
-          'Learner',
-          'Facilitator',
-          'Other',
-        ];
+        const allowedValues = ['AI', 'Online', 'Manual', 'AI Evaluator'];
         if (!allowedValues.includes(createAssessmentTrackingDto.submitedBy)) {
-          createAssessmentTrackingDto.submitedBy = 'Other';
+          createAssessmentTrackingDto.submitedBy = 'Online';
         }
       }
-      //fetch contentId and check in the table answersheet_submissions fetch record and check  if exists then put show flag as false
+      //Check in the table answersheet_submissions fetch record
+      //if exists then put show flag as false
       const existingAIAssessment = await this.aiAssessmentRepository.findOne({
         where: {
           question_set_id: createAssessmentTrackingDto.contentId,
         },
       });
-      console.log(existingAIAssessment);
+      //showFlag is for AI assessment show to the learner
       if (existingAIAssessment) {
-        if (createAssessmentTrackingDto.submitedBy == 'Facilitator')
+        if (createAssessmentTrackingDto.submitedBy == 'Manual')
           createAssessmentTrackingDto.showFlag = true;
         else createAssessmentTrackingDto.showFlag = false;
       } else {
         createAssessmentTrackingDto.showFlag = true;
       }
-      //--------------------------------------------------------------------------
-      const result = await this.assessmentTrackingRepository.save(
+      createAssessmentTrackingDto.evaluatedBy =
+        createAssessmentTrackingDto.submitedBy as EvaluationType;
+      //--------------------------------------------------------------------------//
+      const result: any = await this.assessmentTrackingRepository.save(
         createAssessmentTrackingDto,
       );
       //save score details
@@ -974,8 +978,22 @@ export class TrackingAssessmentService {
           contentId: object.questionSetId,
         },
       });
-
-      if (result.length === 0) {
+      const answersheetSubmissionResponse =
+        await this.answersheetSubmissionRepository.find({
+          where: {
+            userId: In(object.userIds),
+            questionSetId: object.questionSetId,
+          },
+        });
+      console.log('result: ', result);
+      const questionsetPendingFromAI =
+        !result || result.length === 0
+          ? answersheetSubmissionResponse
+          : answersheetSubmissionResponse.filter(
+              (item) => !result.some((r) => r.userId === item.userId),
+            );
+      console.log('questionsetPendingFromAI: ', questionsetPendingFromAI);
+      if (result.length === 0 && questionsetPendingFromAI.length === 0) {
         this.loggerService.log(
           'No offline assessment records found.',
           apiId,
@@ -984,42 +1002,71 @@ export class TrackingAssessmentService {
         return APIResponse.success(
           response,
           apiId,
-          { status: false },
+          [],
           HttpStatus.OK,
           'No offline assessment records found.',
         );
       }
-      const groupedByUser = new Map<string, typeof result>();
+      let finalResult = [];
+      const bucketUrl = 'https://' + this.configService.get('AWS_BUCKET_NAME');
+      if (result.length > 0) {
+        const groupedByUser = new Map<string, typeof result>();
 
-      for (const item of result) {
-        if (!groupedByUser.has(item.userId)) {
-          groupedByUser.set(item.userId, []);
+        for (const item of result) {
+          if (!groupedByUser.has(item.userId)) {
+            groupedByUser.set(item.userId, []);
+          }
+          groupedByUser.get(item.userId).push(item);
         }
-        groupedByUser.get(item.userId).push(item);
-      }
-      const finalResult = [];
 
-      for (const [userId, records] of groupedByUser.entries()) {
-        let uploadedFlag = false;
-        let submitedFlag = false;
-        let status;
+        for (const [userId, records] of groupedByUser.entries()) {
+          let uploadedFlag = false;
+          let submitedFlag = false;
+          let status;
 
-        if (records.length === 1 && records[0].submitedBy === 'AI Evaluator') {
-          uploadedFlag = true;
-          status = 'Submitted';
-        } else {
-          submitedFlag = records.some(
-            (item) => item.submitedBy === 'Facilitator',
+          if (records.length === 1 && records[0].evaluatedBy === 'AI') {
+            uploadedFlag = true;
+            status = 'AI Processed';
+          } else {
+            submitedFlag = records.some(
+              (item) => item.evaluatedBy === 'Manual',
+            );
+            if (submitedFlag) status = 'Approved';
+          }
+
+          let userAnswerSheetRecords = answersheetSubmissionResponse.filter(
+            (item) => {
+              return item.userId === userId;
+            },
           );
-          if (submitedFlag) status = 'Approved';
-        }
+          const finalFileUrls = userAnswerSheetRecords.flatMap((item) =>
+            item.fileUrls.map((filePath: string) => `${bucketUrl}/${filePath}`),
+          );
 
-        finalResult.push({
-          userId,
-          uploadedFlag,
-          submitedFlag,
-          status,
-          records,
+          finalResult.push({
+            userId,
+            uploadedFlag,
+            submitedFlag,
+            status,
+            records,
+            fileUrls: finalFileUrls,
+          });
+        }
+      }
+      if (questionsetPendingFromAI.length > 0) {
+        questionsetPendingFromAI.forEach((item) => {
+          let fileUrls = item.fileUrls.map((filePath: string) => {
+            return `${bucketUrl}/${filePath}`;
+          });
+          item.fileUrls = fileUrls;
+          finalResult.push({
+            userId: item.userId,
+            uploadedFlag: false,
+            submitedFlag: false,
+            status: 'AI Pending',
+            records: [item],
+            fileUrls: fileUrls,
+          });
         });
       }
 
@@ -1047,7 +1094,4 @@ export class TrackingAssessmentService {
       );
     }
   }
-}
-function Not(arg0: boolean): boolean | import('typeorm').FindOperator<boolean> {
-  throw new Error('Function not implemented.');
 }

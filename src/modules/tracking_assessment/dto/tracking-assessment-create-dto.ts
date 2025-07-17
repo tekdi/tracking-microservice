@@ -111,11 +111,21 @@ export class CreateAssessmentTrackingDto {
   showFlag?: boolean;
 
   @IsString()
+  @IsOptional()
   submitedBy: string;
+
+  @IsString()
+  @IsOptional()
+  evaluatedBy?: EvaluationType;
 
   constructor(obj?: Partial<CreateAssessmentTrackingDto>) {
     if (obj) {
       Object.assign(this, obj);
     }
   }
+}
+export enum EvaluationType {
+  AI = 'AI',
+  ONLINE = 'Online',
+  MANUAL = 'Manual',
 }

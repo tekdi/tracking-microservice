@@ -1,5 +1,11 @@
+import { IsEnum, IsOptional } from 'class-validator';
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
+export enum EvaluationType {
+  AI = 'AI',
+  ONLINE = 'Online',
+  MANUAL = 'Manual',
+}
 @Entity({ name: 'assessment_tracking' })
 export class AssessmentTracking {
   @PrimaryGeneratedColumn('uuid')
@@ -50,7 +56,10 @@ export class AssessmentTracking {
   @Column()
   showFlag: boolean;
 
-  //submitedBy must be in [AI Evaluator, Learner, Facilator, Other] if any other value then stored as Other
+  @IsOptional()
   @Column()
-  submitedBy: string;
+  @IsEnum(EvaluationType, {
+    message: 'evaluatedBy must be one of: AI, Online, Manual',
+  })
+  evaluatedBy?: EvaluationType;
 }
