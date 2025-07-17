@@ -112,4 +112,12 @@ export class CertificateController {
       response,
     );
   }
+  //write API  to render certificate from htl in jpg renderCertificatePDFFromHTML
+  @Post('render-image')
+  async renderCertificateImageFromHTML(
+    @Body() renderCertificateDto: RenderCertificateDTO,
+    @Res() response: Response,
+  ) {
+    return await this.certificateService.renderImageFromHTML(renderCertificateDto.credentialId, renderCertificateDto.templateId, response);
+  }
 }

@@ -2,7 +2,7 @@ import { IsEnum, IsOptional } from 'class-validator';
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 export enum EvaluationType {
-  AI = 'AI Evaluator',
+  AI = 'AI',
   ONLINE = 'Online',
   MANUAL = 'Manual',
 }
@@ -57,6 +57,7 @@ export class AssessmentTracking {
   showFlag: boolean;
 
   @IsOptional()
+  @Column()
   @IsEnum(EvaluationType, {
     message: 'evaluatedBy must be one of: AI, Online, Manual',
   })
