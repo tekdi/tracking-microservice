@@ -80,12 +80,9 @@ jobs:
         export IMAGE_TAG=${{ env.TAG }}
         envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
         cat manifest/tracking-service-updated.yaml
+        aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME_PROD }} --region ${{ secrets.AWS_REGION_NAME }}
         kubectl delete deployment trackingmanagement
-        kubectl delete svc trackingmanagement
-        kubectl delete cm tracking-service-config
         kubectl apply -f manifest/tracking-service-updated.yaml
         kubectl apply -f manifest/configmap.yaml
         sleep 10
-        kubectl get pods
-        kubectl get services
-        kubectl get deployment
+        kubectl get pods | grep tracking
