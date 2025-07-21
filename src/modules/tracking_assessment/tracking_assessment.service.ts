@@ -211,6 +211,9 @@ export class TrackingAssessmentService {
         createAssessmentTrackingDto.submitedBy = 'Online';
       } else {
         const allowedValues = ['AI', 'Online', 'Manual', 'AI Evaluator'];
+        if (createAssessmentTrackingDto.submitedBy == 'AI Evaluator') {
+          createAssessmentTrackingDto.submitedBy = 'AI';
+        }
         if (!allowedValues.includes(createAssessmentTrackingDto.submitedBy)) {
           createAssessmentTrackingDto.submitedBy = 'Online';
         }
