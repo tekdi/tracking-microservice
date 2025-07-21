@@ -86,4 +86,3 @@ jobs:
         kubectl apply -f manifest/configmap.yaml
         sleep 10
         kubectl get pods | grep tracking
-        
