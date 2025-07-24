@@ -273,7 +273,12 @@ export class TrackingAssessmentService {
           await this.assessmentTrackingScoreDetailRepository.save(scoreObj);
       } catch (e) {
         //Error in CreateScoreDetail!
-        console.log(e);
+        this.loggerService.error(
+          'Internal Server Error in CreateScoreDetail',
+          'INTERNAL_SERVER_ERROR',
+          apiId,
+          e.message || 'Internal Server Error',
+        );
       }
       this.loggerService.log(
         'Assessment submitted successfully.',
@@ -402,7 +407,10 @@ export class TrackingAssessmentService {
            FROM assessment_tracking_score_detail WHERE "assessmentTrackingId" = $1`,
           [tracking.assessmentTrackingId],
         );
-
+        //conver score from string to number
+        for (const score of result_score) {
+          score.score = parseFloat(score.score);
+        }
         tracking.score_details = result_score;
         output_result.push(tracking);
       }
