@@ -393,7 +393,7 @@ export class AiAssessmentService {
     // Need to Add security token
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + this.configService.get<string>('TOKEN'),
+      Authorization: 'Bearer ' + this.configService.get<string>('TOKEN'),
     };
 
     try {
@@ -425,18 +425,18 @@ export class AiAssessmentService {
   /**
    * Call external AI API - webhook for question set update
    */
-  async updateQuestionSet(questionSetId, response: Response): Promise<any> {
+  async updateQuestionSet(questionSetDoId, response: Response): Promise<any> {
     const apiUrl = this.configService.get<string>('AI_API_BASE_URL');
     //check assessmnet is created by AI ?
     const record = await this.aiAssessmentRepository.findOne({
-      where: { question_set_id: questionSetId },
+      where: { question_set_id: questionSetDoId },
     });
     if (!record) {
       this.loggerService.error(
         'No AI Assessment found for the given Question Set Id for updating questionset mode',
         'NOT_FOUND',
         'api.update.questionSet',
-        questionSetId,
+        questionSetDoId,
       );
       return APIResponse.error(
         response,
@@ -453,22 +453,26 @@ export class AiAssessmentService {
     // Need to Add security token
     const headers = {
       'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + this.configService.get<string>('TOKEN'),
     };
 
+    const payload = { questionSetId: questionSetDoId };
     try {
       const result = await axios.post(
         `${apiUrl}/update-questionset/`,
-        { questionSetId: questionSetId },
-        { headers },
+        payload,
+        {
+          headers,
+        },
       );
 
       this.loggerService.log(
         'External AI API response received',
         'callExternalAiApi',
-        questionSetId,
+        questionSetDoId,
       );
       //update assessment mode by checking qtype
-      const qTypes = await this.fetchQTypes(questionSetId);
+      const qTypes = await this.fetchQTypes(questionSetDoId);
       if (qTypes.length > 0) {
         let assessment_mode; // Default to ONLINE
         if (qTypes.includes('SA')) {
@@ -501,7 +505,7 @@ export class AiAssessmentService {
             'Something went wrong while updating AI assessment status',
             errorMessage,
             'api.update.questionSet',
-            questionSetId,
+            questionSetDoId,
           );
           return APIResponse.error(
             response,
@@ -525,7 +529,7 @@ export class AiAssessmentService {
         'External AI API call failed',
         error.response?.data?.message || error.message,
         'callExternalAiApi',
-        questionSetId,
+        questionSetDoId,
       );
       throw new Error(
         `External AI API call failed: ${error.response?.data?.message || error.message}`,
