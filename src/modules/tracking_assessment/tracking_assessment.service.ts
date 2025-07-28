@@ -220,25 +220,61 @@ export class TrackingAssessmentService {
       }
       //Check in the table answersheet_submissions fetch record
       //if exists then put show flag as false
-      const existingAIAssessment = await this.aiAssessmentRepository.findOne({
-        where: {
-          question_set_id: createAssessmentTrackingDto.contentId,
-        },
-      });
-      //showFlag is for AI assessment show to the learner
-      if (existingAIAssessment) {
-        if (createAssessmentTrackingDto.submitedBy == 'Manual')
-          createAssessmentTrackingDto.showFlag = true;
-        else createAssessmentTrackingDto.showFlag = false;
-      } else {
-        createAssessmentTrackingDto.showFlag = true;
-      }
+      // const existingAIAssessment = await this.aiAssessmentRepository.findOne({
+      //   where: {
+      //     question_set_id: createAssessmentTrackingDto.contentId,
+      //   },
+      // });
+      // //showFlag is for AI assessment show to the learner
+      // if (existingAIAssessment) {
+      //   if (createAssessmentTrackingDto.submitedBy == 'Manual')
+      //     createAssessmentTrackingDto.showFlag = true;
+      //   else createAssessmentTrackingDto.showFlag = false;
+      // } else {
+      //   createAssessmentTrackingDto.showFlag = true;
+      // }
       createAssessmentTrackingDto.evaluatedBy =
         createAssessmentTrackingDto.submitedBy as EvaluationType;
       //--------------------------------------------------------------------------//
-      const result: any = await this.assessmentTrackingRepository.save(
-        createAssessmentTrackingDto,
-      );
+
+      let result;
+      //replace existing record submitted by AI by manual new record
+      if (createAssessmentTrackingDto.submitedBy == 'Manual') {
+        const existingRecord = await this.assessmentTrackingRepository.findOne({
+          where: {
+            userId: createAssessmentTrackingDto.userId,
+            contentId: createAssessmentTrackingDto.contentId,
+            courseId: createAssessmentTrackingDto.courseId,
+            unitId: createAssessmentTrackingDto.unitId,
+          },
+        });
+        let newRecord;
+        if (existingRecord) {
+          //update same record with all details in createAssessmentTrackingDto
+          newRecord = {
+            ...existingRecord,
+            ...createAssessmentTrackingDto,
+          };
+          newRecord.assessmentTrackingId = existingRecord.assessmentTrackingId;
+          console.log('newRecord: ', newRecord);
+          result = await this.assessmentTrackingRepository.save(newRecord);
+          this.loggerService.log(
+            'Assessment updated successfully.',
+            apiId,
+            createAssessmentTrackingDto.userId,
+          );
+        }
+        //check in assessmentTrackingScoreDetailRepository all records and delete the same
+        let existingScoreDetails =
+          await this.assessmentTrackingScoreDetailRepository.delete({
+            assessmentTrackingId: existingRecord.assessmentTrackingId,
+          });
+      } else {
+        result = await this.assessmentTrackingRepository.save(
+          createAssessmentTrackingDto,
+        );
+      }
+
       //save score details
       try {
         let testId = result.assessmentTrackingId;
