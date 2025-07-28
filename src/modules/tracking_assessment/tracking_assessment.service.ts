@@ -537,7 +537,6 @@ export class TrackingAssessmentService {
                   AND "courseId" IN (${courseId_text}) 
                   AND "unitId" IN (${unitId_text}) 
                   AND "contentId" IN (${contentId_text}) 
-                  AND "showFlag" = true
           )
           SELECT 
               "assessmentTrackingId",
