@@ -192,9 +192,9 @@ export class CertificateService {
       month: 'long',
       year: 'numeric',
     };
-    const formatted = today.toLocaleDateString('en-US', options);
+    const formattedIssuanceDate = today.toLocaleDateString('en-US', options);
 
-    console.log(formatted); // e.g., "July 2025"
+    this.loggerService.log('Formatted issuance date:', formattedIssuanceDate); // e.g., "July 2025"
 
     try {
       //get credentialId
@@ -227,7 +227,7 @@ export class CertificateService {
             userId: issueCredential.userId,
             courseId: issueCredential.courseId,
             courseName: issueCredential.courseName,
-            issuedOn: issueCredential.issuedOn || formatted,
+            issuedOn: issueCredential.issuedOn || formattedIssuanceDate,
           },
         },
         credentialSchemaId: this.configService.get('SCHEMA_ID'),
