@@ -426,8 +426,7 @@ export class TrackingAssessmentService {
         params.push(searchFilter.unitId);
       }
       // Always add condition to exclude submittedBy AI
-      conditions.push(`"submittedBy" IS DISTINCT FROM AI`);
-
+      conditions.push(`"evaluatedBy" IS DISTINCT FROM 'AI'`);
       const whereClause =
         conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
