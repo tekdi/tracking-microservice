@@ -431,7 +431,7 @@ export class TrackingAssessmentService {
         conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId", "evaluatedBy"
+        `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId"
          FROM assessment_tracking ${whereClause}`,
         params,
       );
