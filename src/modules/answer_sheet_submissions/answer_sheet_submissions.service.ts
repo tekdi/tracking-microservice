@@ -88,7 +88,7 @@ export class AnswerSheetSubmissionsService {
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
       this.loggerService.error(
-        'Something went wrong in Answer Sheet Submission creation',
+        'Something went wrong while fetching Answer Sheet Submission details',
         errorMessage,
         apiId,
         answerSheetSubmissionId,
@@ -96,7 +96,7 @@ export class AnswerSheetSubmissionsService {
       return APIResponse.error(
         response,
         apiId,
-        'Something went wrong in Answer Sheet Submission creation',
+        'Something went wrong while fetching Answer Sheet Submission details',
         errorMessage,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -162,20 +162,15 @@ export class AnswerSheetSubmissionsService {
       this.loggerService.log('request for API: ', apiId);
       const generatedAssessmentResponse =
         await this.callExternalAiApiForEvaluation(payload);
-      console.log('generatedAssessmentResponse: ', generatedAssessmentResponse);
       this.loggerService.log(
         'External AI API called successfully.',
         apiId,
         result.id,
       );
 
-      // await this.answerSheetSubmissionsRepository.update(result.id, {
-      //   status: 'PROCESSING',
-      // });
-
       if (result) {
         this.loggerService.log(
-          'Answer Sheet Submission created successfully.',
+          'Answer Sheet submitted successfully.',
           apiId,
           result.id,
         );
@@ -185,12 +180,12 @@ export class AnswerSheetSubmissionsService {
         apiId,
         result,
         HttpStatus.OK,
-        'Answer Sheet Submission created successfully.',
+        'Answer Sheet submitted successfully.',
       );
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
       this.loggerService.error(
-        'Something went wrong in Answer Sheet Submission creation',
+        'Something went wrong in Answer Sheet Submission',
         errorMessage,
         apiId,
         createAnswerSheetSubmissionDto.questionSetId,
@@ -198,7 +193,7 @@ export class AnswerSheetSubmissionsService {
       return APIResponse.error(
         response,
         apiId,
-        'Something went wrong in Answer Sheet Submission creation',
+        'Something went wrong in Answer Sheet Submission',
         errorMessage,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );

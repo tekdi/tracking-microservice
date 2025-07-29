@@ -187,6 +187,15 @@ export class CertificateService {
     response,
   ) {
     let apiId = 'api.issueCertificate';
+    const today = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      month: 'long',
+      year: 'numeric',
+    };
+    const formattedIssuanceDate = today.toLocaleDateString('en-US', options);
+
+    this.loggerService.log('Formatted issuance date:', formattedIssuanceDate); // e.g., "July 2025"
+
     try {
       //get credentialId
       let learnerDid = await this.generateDidByUserId(issueCredential.userId);
@@ -218,6 +227,7 @@ export class CertificateService {
             userId: issueCredential.userId,
             courseId: issueCredential.courseId,
             courseName: issueCredential.courseName,
+            issuedOn: issueCredential.issuedOn || formattedIssuanceDate,
           },
         },
         credentialSchemaId: this.configService.get('SCHEMA_ID'),

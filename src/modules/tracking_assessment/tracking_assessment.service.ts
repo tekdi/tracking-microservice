@@ -220,25 +220,61 @@ export class TrackingAssessmentService {
       }
       //Check in the table answersheet_submissions fetch record
       //if exists then put show flag as false
-      const existingAIAssessment = await this.aiAssessmentRepository.findOne({
-        where: {
-          question_set_id: createAssessmentTrackingDto.contentId,
-        },
-      });
-      //showFlag is for AI assessment show to the learner
-      if (existingAIAssessment) {
-        if (createAssessmentTrackingDto.submitedBy == 'Manual')
-          createAssessmentTrackingDto.showFlag = true;
-        else createAssessmentTrackingDto.showFlag = false;
-      } else {
-        createAssessmentTrackingDto.showFlag = true;
-      }
+      // const existingAIAssessment = await this.aiAssessmentRepository.findOne({
+      //   where: {
+      //     question_set_id: createAssessmentTrackingDto.contentId,
+      //   },
+      // });
+      // //showFlag is for AI assessment show to the learner
+      // if (existingAIAssessment) {
+      //   if (createAssessmentTrackingDto.submitedBy == 'Manual')
+      //     createAssessmentTrackingDto.showFlag = true;
+      //   else createAssessmentTrackingDto.showFlag = false;
+      // } else {
+      //   createAssessmentTrackingDto.showFlag = true;
+      // }
       createAssessmentTrackingDto.evaluatedBy =
         createAssessmentTrackingDto.submitedBy as EvaluationType;
       //--------------------------------------------------------------------------//
-      const result: any = await this.assessmentTrackingRepository.save(
-        createAssessmentTrackingDto,
-      );
+
+      let result;
+      //replace existing record submitted by AI by manual new record
+      if (createAssessmentTrackingDto.submitedBy == 'Manual') {
+        const existingRecord = await this.assessmentTrackingRepository.findOne({
+          where: {
+            userId: createAssessmentTrackingDto.userId,
+            contentId: createAssessmentTrackingDto.contentId,
+            courseId: createAssessmentTrackingDto.courseId,
+            unitId: createAssessmentTrackingDto.unitId,
+          },
+        });
+        let newRecord;
+        if (existingRecord) {
+          //update same record with all details in createAssessmentTrackingDto
+          newRecord = {
+            ...existingRecord,
+            ...createAssessmentTrackingDto,
+          };
+          newRecord.assessmentTrackingId = existingRecord.assessmentTrackingId;
+          console.log('newRecord: ', newRecord);
+          result = await this.assessmentTrackingRepository.save(newRecord);
+          this.loggerService.log(
+            'Assessment updated successfully.',
+            apiId,
+            createAssessmentTrackingDto.userId,
+          );
+        }
+        //check in assessmentTrackingScoreDetailRepository all records and delete the same
+        let existingScoreDetails =
+          await this.assessmentTrackingScoreDetailRepository.delete({
+            assessmentTrackingId: existingRecord.assessmentTrackingId,
+          });
+      } else {
+        result = await this.assessmentTrackingRepository.save(
+          createAssessmentTrackingDto,
+        );
+      }
+
       //save score details
       try {
         let testId = result.assessmentTrackingId;
@@ -273,7 +309,12 @@ export class TrackingAssessmentService {
           await this.assessmentTrackingScoreDetailRepository.save(scoreObj);
       } catch (e) {
         //Error in CreateScoreDetail!
-        console.log(e);
+        this.loggerService.error(
+          'Internal Server Error in CreateScoreDetail',
+          'INTERNAL_SERVER_ERROR',
+          apiId,
+          e.message || 'Internal Server Error',
+        );
       }
       this.loggerService.log(
         'Assessment submitted successfully.',
@@ -384,9 +425,8 @@ export class TrackingAssessmentService {
         conditions.push(`"unitId" = $${params.length + 1}`);
         params.push(searchFilter.unitId);
       }
-      // Always add condition to exclude showFlag = false
-      conditions.push(`"showFlag" IS DISTINCT FROM false`);
-
+      // Always add condition to exclude submittedBy AI
+      conditions.push(`"evaluatedBy" IS DISTINCT FROM 'AI'`);
       const whereClause =
         conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -402,7 +442,10 @@ export class TrackingAssessmentService {
            FROM assessment_tracking_score_detail WHERE "assessmentTrackingId" = $1`,
           [tracking.assessmentTrackingId],
         );
-
+        //conver score from string to number
+        for (const score of result_score) {
+          score.score = parseFloat(score.score);
+        }
         tracking.score_details = result_score;
         output_result.push(tracking);
       }
@@ -489,10 +532,12 @@ export class TrackingAssessmentService {
               FROM 
                   assessment_tracking
               WHERE 
-                  "userId" = $1 
+              "evaluatedBy" IS DISTINCT FROM 'AI' 
+              AND "userId" = $1 
                   AND "courseId" IN (${courseId_text}) 
                   AND "unitId" IN (${unitId_text}) 
                   AND "contentId" IN (${contentId_text}) 
+
           )
           SELECT 
               "assessmentTrackingId",
