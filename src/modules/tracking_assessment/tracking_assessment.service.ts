@@ -426,13 +426,12 @@ export class TrackingAssessmentService {
         params.push(searchFilter.unitId);
       }
       // Always add condition to exclude submittedBy AI
-      conditions.push(`"submittedBy" IS DISTINCT FROM AI`);
-
+      conditions.push(`"evaluatedBy" IS DISTINCT FROM 'AI'`);
       const whereClause =
         conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId"
+        `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId", "evaluatedBy"
          FROM assessment_tracking ${whereClause}`,
         params,
       );
