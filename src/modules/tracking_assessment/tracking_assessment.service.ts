@@ -425,8 +425,8 @@ export class TrackingAssessmentService {
         conditions.push(`"unitId" = $${params.length + 1}`);
         params.push(searchFilter.unitId);
       }
-      // Always add condition to exclude showFlag = false
-      conditions.push(`"showFlag" IS DISTINCT FROM false`);
+      // Always add condition to exclude submittedBy AI
+      conditions.push(`"submittedBy" IS DISTINCT FROM AI`);
 
       const whereClause =
         conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
