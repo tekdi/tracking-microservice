@@ -228,6 +228,7 @@ export class CertificateService {
             courseId: issueCredential.courseId,
             courseName: issueCredential.courseName,
             issuedOn: issueCredential.issuedOn || formattedIssuanceDate,
+            certificateId: '**Id**',
           },
         },
         credentialSchemaId: this.configService.get('SCHEMA_ID'),
@@ -301,7 +302,7 @@ export class CertificateService {
           Accept: 'text/html',
         },
       });
-
+      response.data = response?.data?.replace('**Id**', credentialId);
       return APIResponse.success(
         res,
         apiId,
@@ -360,7 +361,12 @@ export class CertificateService {
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
-        margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
+        margin: {
+          top: '10mm',
+          bottom: '10mm',
+          left: '0mm',
+          right: '0mm',
+        },
       });
 
       await browser.close();
