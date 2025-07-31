@@ -339,6 +339,7 @@ export class CertificateService {
           Accept: 'text/html',
         },
       });
+      response.data = response?.data?.replace('**Id**', credentialId);
 
       // Launch Puppeteer
       const browser = await puppeteer.launch({
