@@ -438,12 +438,12 @@ export class AiAssessmentService {
         'api.update.questionSet',
         questionSetDoId,
       );
-      return APIResponse.error(
+      return APIResponse.success(
         response,
         'api.update.questionSet',
         'No AI Assessment found for the given Question Set Id for updating questionset mode',
-        'NOT_FOUND',
-        HttpStatus.NOT_FOUND,
+        200,
+        "No AI Assessment found for the given Question Set Id for updating questionset mode",
       );
     }
 
