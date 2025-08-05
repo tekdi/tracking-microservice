@@ -25,6 +25,8 @@ type TrackerInsertObject = {
   status: 'INITIATED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   response_message: string | null;
   metadata: Record<string, any>;
+  created_by: string;
+  updated_by: string;
   token?: string;
 };
 
@@ -236,7 +238,13 @@ export class AiAssessmentService {
         questionsDetails: input.questionsDetails,
         content: input.content,
         createdBy: input.createdBy,
+        difficultyLevel: input.difficulty_level,
+        distribution: input.question_types,
+        channel: input.channel,
+        framework: input.framework,
       },
+      created_by: input.createdBy,
+      updated_by: input.createdBy,
     };
   }
 
@@ -443,7 +451,7 @@ export class AiAssessmentService {
         'api.update.questionSet',
         'No AI Assessment found for the given Question Set Id for updating questionset mode',
         200,
-        "No AI Assessment found for the given Question Set Id for updating questionset mode",
+        'No AI Assessment found for the given Question Set Id for updating questionset mode',
       );
     }
 

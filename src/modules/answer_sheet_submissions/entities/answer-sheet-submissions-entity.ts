@@ -44,4 +44,10 @@ export class AnswerSheetSubmissions {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @Column({ type: 'text', nullable: true })
+  created_by: string;
+
+  @Column({ type: 'text', nullable: true })
+  updated_by: string;
 }
