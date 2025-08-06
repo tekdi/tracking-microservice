@@ -201,9 +201,8 @@ export class TrackingAssessmentService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      // for offline support
-      //----------------------------------------------------------------------
-      //check submitedBy
+      // for offline support - check submitedBy
+
       if (
         !createAssessmentTrackingDto.submitedBy ||
         createAssessmentTrackingDto.submitedBy === ''
@@ -218,24 +217,8 @@ export class TrackingAssessmentService {
           createAssessmentTrackingDto.submitedBy = 'Online';
         }
       }
-      //Check in the table answersheet_submissions fetch record
-      //if exists then put show flag as false
-      // const existingAIAssessment = await this.aiAssessmentRepository.findOne({
-      //   where: {
-      //     question_set_id: createAssessmentTrackingDto.contentId,
-      //   },
-      // });
-      // //showFlag is for AI assessment show to the learner
-      // if (existingAIAssessment) {
-      //   if (createAssessmentTrackingDto.submitedBy == 'Manual')
-      //     createAssessmentTrackingDto.showFlag = true;
-      //   else createAssessmentTrackingDto.showFlag = false;
-      // } else {
-      //   createAssessmentTrackingDto.showFlag = true;
-      // }
       createAssessmentTrackingDto.evaluatedBy =
         createAssessmentTrackingDto.submitedBy as EvaluationType;
-      //--------------------------------------------------------------------------//
 
       let result;
       //replace existing record submitted by AI by manual new record
@@ -343,6 +326,126 @@ export class TrackingAssessmentService {
         response,
         apiId,
         'Failed to fetch assessment data.',
+        errorMessage,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  public async updateAssessmentTracking(
+    request: any,
+    assessmentTrackingId: string,
+    updateObject: any,
+    response: any,
+  ) {
+    const apiId = 'api.update.assessment';
+    try {
+      // Validate UUID
+      if (!isUUID(assessmentTrackingId)) {
+        this.loggerService.error(
+          'Please enter a valid UUID.',
+          'BAD_REQUEST',
+          apiId,
+          assessmentTrackingId,
+        );
+        return APIResponse.error(
+          response,
+          apiId,
+          'Please enter a valid UUID.',
+          'Please enter a valid UUID.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Find the existing assessment record
+      const existingRecord = await this.assessmentTrackingRepository.findOne({
+        where: { assessmentTrackingId },
+      });
+      if (!existingRecord) {
+        this.loggerService.error(
+          'Assessment record not found.',
+          'NOT_FOUND',
+          apiId,
+          assessmentTrackingId,
+        );
+        return APIResponse.error(
+          response,
+          apiId,
+          'Assessment record not found.',
+          'NOT_FOUND',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Update the main assessment record
+      const updatedRecord = {
+        ...existingRecord,
+        ...updateObject,
+      };
+      this.loggerService.log(
+        'Updating assessment record with new values.',
+        apiId,
+        updatedRecord,
+      );
+      await this.assessmentTrackingRepository.save(updatedRecord);
+
+      // If assessmentSummary (question details) is present, update related details
+      if (
+        updateObject.assessmentSummary &&
+        Array.isArray(updateObject.assessmentSummary)
+      ) {
+        for (const section of updateObject.assessmentSummary) {
+          const itemData = section?.data;
+          if (itemData) {
+            for (const dataItem of itemData) {
+              // Update the score detail record for this question
+              await this.assessmentTrackingScoreDetailRepository.update(
+                {
+                  assessmentTrackingId,
+                  questionId: dataItem?.item?.id,
+                },
+                {
+                  pass: dataItem?.pass,
+                  sectionId: dataItem?.item?.sectionId,
+                  resValue: dataItem?.resvalues
+                    ? JSON.stringify(dataItem.resvalues)
+                    : '',
+                  duration: dataItem?.duration,
+                  score: dataItem?.score,
+                  maxScore: dataItem?.item?.maxscore,
+                  queTitle: dataItem?.item?.title,
+                  feedback: dataItem?.resvalues?.[0]?.AI_suggestion,
+                },
+              );
+            }
+          }
+        }
+      }
+
+      this.loggerService.log(
+        'Assessment and details updated successfully.',
+        apiId,
+        assessmentTrackingId,
+      );
+      return APIResponse.success(
+        response,
+        apiId,
+        { assessmentTrackingId },
+        HttpStatus.OK,
+        'Assessment and details updated successfully.',
+      );
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        'INTERNAL_SERVER_ERROR',
+        apiId,
+        assessmentTrackingId,
+      );
+      return APIResponse.error(
+        response,
+        apiId,
+        'Failed to update assessment data.',
         errorMessage,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );

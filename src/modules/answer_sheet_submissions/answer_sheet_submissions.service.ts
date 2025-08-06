@@ -127,7 +127,7 @@ export class AnswerSheetSubmissionsService {
         },
       });
 
-      if (existing) {
+      if (existing && existing.status != 'FAILED') {
         this.loggerService.error(
           'Answer Sheet Submission with this Question Set Id already exists.',
           'CONFLICT',

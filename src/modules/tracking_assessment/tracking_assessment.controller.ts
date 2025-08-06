@@ -167,4 +167,23 @@ export class TrackingAssessmentController {
       response,
     );
   }
+
+  //Update assessment
+  @Post('update/:assessmentTrackingId')
+  @ApiOkResponse({ description: 'Assessment updated successfully.' })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
+  @ApiBadRequestResponse({ description: 'Bad Request.' })
+  async updateAssessmentTracking(
+    @Param('assessmentTrackingId') assessmentTrackingId: string,
+    @Req() request: Request,
+    @Body() updateData: any,
+    @Res() response: Response,
+  ) {
+    return this.trackingAssessmentService.updateAssessmentTracking(
+      request,
+      assessmentTrackingId,
+      updateData,
+      response,
+    );
+  }
 }
