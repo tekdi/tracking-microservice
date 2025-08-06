@@ -201,9 +201,8 @@ export class TrackingAssessmentService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      // for offline support
-      //----------------------------------------------------------------------
-      //check submitedBy
+      // for offline support - check submitedBy
+
       if (
         !createAssessmentTrackingDto.submitedBy ||
         createAssessmentTrackingDto.submitedBy === ''
@@ -218,24 +217,8 @@ export class TrackingAssessmentService {
           createAssessmentTrackingDto.submitedBy = 'Online';
         }
       }
-      //Check in the table answersheet_submissions fetch record
-      //if exists then put show flag as false
-      // const existingAIAssessment = await this.aiAssessmentRepository.findOne({
-      //   where: {
-      //     question_set_id: createAssessmentTrackingDto.contentId,
-      //   },
-      // });
-      // //showFlag is for AI assessment show to the learner
-      // if (existingAIAssessment) {
-      //   if (createAssessmentTrackingDto.submitedBy == 'Manual')
-      //     createAssessmentTrackingDto.showFlag = true;
-      //   else createAssessmentTrackingDto.showFlag = false;
-      // } else {
-      //   createAssessmentTrackingDto.showFlag = true;
-      // }
       createAssessmentTrackingDto.evaluatedBy =
         createAssessmentTrackingDto.submitedBy as EvaluationType;
-      //--------------------------------------------------------------------------//
 
       let result;
       //replace existing record submitted by AI by manual new record
