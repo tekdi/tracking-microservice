@@ -135,7 +135,7 @@ export class AiAssessmentService {
       });
       if (existing) {
         this.loggerService.error(
-          'AI Assessment with this Question Set Id   already exists.',
+          'AI Assessment with this Question Set Id already exists.',
           'CONFLICT',
           apiId,
           createAiAssessmentDto.questionSetId,
@@ -149,7 +149,6 @@ export class AiAssessmentService {
         );
       }
       const insertObject = this.transformToInsertObject(createAiAssessmentDto);
-      console.log('insertObject', insertObject);
       const result = await this.aiAssessmentRepository.save(insertObject);
 
       // Call external AI API
@@ -166,7 +165,7 @@ export class AiAssessmentService {
 
       // Update database with external API response data
       await this.aiAssessmentRepository.update(result.id, {
-        status: 'PROCESSING',
+        status: generatedQuestionResponse.status,
         response_message: generatedQuestionResponse.message,
         metadata: {
           ...result.metadata,
@@ -179,23 +178,11 @@ export class AiAssessmentService {
         },
       });
 
-      // Fetch updated result to include external API response
-      const updatedResult = await this.aiAssessmentRepository.findOne({
-        where: { id: result.id },
-      });
-
-      if (updatedResult) {
-        this.loggerService.log(
-          'AI Assessment created successfully.',
-          apiId,
-          updatedResult.id,
-        );
-      }
       return APIResponse.success(
         response,
         apiId,
         {
-          ...updatedResult,
+          ...result,
           externalApiResponse: {
             request_id: generatedQuestionResponse.request_id,
             question_set_id: generatedQuestionResponse.question_set_id,

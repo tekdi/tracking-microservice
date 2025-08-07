@@ -443,7 +443,7 @@
             ]
         },
         {
-            "sourceRoute": "/interface/v1/tracking/assessment/:identifier",
+            "sourceRoute": "/interface/v1/tracking/assessment/update/:identifier",
             "type": "POST",
             "priority": "MUST_HAVE",
             "inSequence": false,
