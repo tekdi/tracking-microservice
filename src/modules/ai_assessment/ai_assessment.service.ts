@@ -157,6 +157,10 @@ export class AiAssessmentService {
       );
       const generatedQuestionResponse =
         await this.callExternalAiApi(externalApiObject);
+
+      if (generatedQuestionResponse.status == 'Pending') {
+        generatedQuestionResponse.status = 'PROCESSING';
+      }
       this.loggerService.log(
         'External AI API called successfully.',
         apiId,
