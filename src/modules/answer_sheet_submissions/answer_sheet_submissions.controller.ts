@@ -81,53 +81,6 @@ export class AnswerSheetSubmissionsController {
     );
   }
 
-  // @Post('search/status')
-  // async searchStatusAnswerSheetSubmission(
-  //   @Req() request: Request,
-  //   @Body() searchFilter: any,
-  //   @Res() response: Response,
-  // ) {
-  //   return this.answerSheetSubmissionsService.searchStatusAnswerSheetSubmission(
-  //     request,
-  //     searchFilter,
-  //     response,
-  //   );
-  // }
-
-  // @Post('/list')
-  // @ApiOkResponse({ description: 'Answer Sheet Submission data fetch successfully.' })
-  // @ApiBody({ type: SearchAnswerSheetSubmissionDto })
-  // @ApiInternalServerErrorResponse({ description: 'Internal Server Error' })
-  // @ApiBadRequestResponse({ description: 'Bad Request' })
-  // async searchAnswerSheetSubmissionRecords(
-  //   @Req() request: Request,
-  //   @Body() searchAnswerSheetSubmissionDto: SearchAnswerSheetSubmissionDto,
-  //   @Res() response: Response,
-  // ) {
-  //   return this.answerSheetSubmissionsService.searchAnswerSheetSubmissionRecords(
-  //     request,
-  //     searchAnswerSheetSubmissionDto,
-  //     response,
-  //   );
-  // }
-
-  // @Delete('delete/:answerSheetSubmissionId')
-  // @ApiOkResponse({ description: 'Answer Sheet Submission deleted successfully.' })
-  // @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
-  // @ApiBadRequestResponse({ description: 'Bad Request.' })
-  // @ApiNotFoundResponse({ description: 'Answer Sheet Submission Not Found.' })
-  // async deleteAnswerSheetSubmission(
-  //   @Param('answerSheetSubmissionId') answerSheetSubmissionId: string,
-  //   @Req() request: Request,
-  //   @Res() response: Response,
-  // ) {
-  //   return this.answerSheetSubmissionsService.deleteAnswerSheetSubmission(
-  //     request,
-  //     answerSheetSubmissionId,
-  //     response,
-  //   );
-  // }
-
   @Patch('update-status/:Id')
   @ApiOkResponse({
     description: 'Answer Sheet Submission status updated successfully.',

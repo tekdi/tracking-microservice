@@ -1123,7 +1123,7 @@ export class TrackingAssessmentService {
   ) {
     const apiId = 'api.offline.assessment.check';
     try {
-      const result = await this.assessmentTrackingRepository.find({
+      let result = await this.assessmentTrackingRepository.find({
         where: {
           userId: In(object.userIds),
           contentId: object.questionSetId,
@@ -1136,14 +1136,16 @@ export class TrackingAssessmentService {
             questionSetId: object.questionSetId,
           },
         });
-      console.log('result: ', result);
-      const questionsetPendingFromAI =
-        !result || result.length === 0
-          ? answersheetSubmissionResponse
-          : answersheetSubmissionResponse.filter(
-              (item) => !result.some((r) => r.userId === item.userId),
-            );
-      console.log('questionsetPendingFromAI: ', questionsetPendingFromAI);
+      const questionsetPendingFromAI = answersheetSubmissionResponse.filter(
+        (item) => item.status == 'RECEIVED',
+      );
+      result = result.filter((item) => {
+        return !questionsetPendingFromAI.some(
+          (pendingItem) =>
+            pendingItem.userId === item.userId &&
+            pendingItem.questionSetId === item.contentId,
+        );
+      });
       if (result.length === 0 && questionsetPendingFromAI.length === 0) {
         this.loggerService.log(
           'No offline assessment records found.',

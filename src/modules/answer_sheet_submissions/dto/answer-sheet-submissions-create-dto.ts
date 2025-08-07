@@ -51,4 +51,7 @@ export class AnswerSheetSubmissionsCreateDto {
   @IsArray()
   @Type(() => ResultHistoryItem)
   resultsHistory?: ResultHistoryItem[];
+
+  @IsString()
+  createdBy: string;
 }
