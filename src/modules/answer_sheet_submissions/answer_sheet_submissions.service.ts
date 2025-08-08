@@ -137,10 +137,11 @@ export class AnswerSheetSubmissionsService {
         updateObject.created_at = existing.created_at;
         updateObject.created_by = existing.created_by;
         updateObject.updated_by = createAnswerSheetSubmissionDto.createdBy;
-        result = await this.answerSheetSubmissionsRepository.update(
+        await this.answerSheetSubmissionsRepository.update(
           existing.id,
           updateObject,
         );
+        result = existing;
       } else {
         //create
         const insertObject = this.transformToInsertObject(
