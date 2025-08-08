@@ -631,12 +631,11 @@ export class TrackingAssessmentService {
                   "updatedOn",
                   "timeSpent",
                   "unitId",
-                  ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
+                  ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY CAST("totalScore" AS INTEGER) DESC) as row_num
               FROM 
                   assessment_tracking
               WHERE 
-              "evaluatedBy" IS DISTINCT FROM 'AI' 
-              AND "userId" = $1 
+              "userId" = $1 
                   AND "courseId" IN (${courseId_text}) 
                   AND "unitId" IN (${unitId_text}) 
                   AND "contentId" IN (${contentId_text}) 
