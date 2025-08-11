@@ -39,9 +39,15 @@ export class AnswerSheetSubmissions {
   @Column({ name: 'response_message', nullable: true })
   response_message: string;
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  @CreateDateColumn({ nullable: true })
+  created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  @UpdateDateColumn({ nullable: true })
+  updated_at: Date;
+
+  @Column({ type: 'text', nullable: true })
+  created_by: string;
+
+  @Column({ type: 'text', nullable: true })
+  updated_by: string;
 }

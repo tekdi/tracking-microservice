@@ -37,4 +37,10 @@ export class AiAssessment {
 
   @UpdateDateColumn({ type: 'timestamp' })
   updated_at: Date;
+
+  @Column({ type: 'text', nullable: true })
+  created_by: string;
+
+  @Column({ type: 'text', nullable: true })
+  updated_by: string;
 }

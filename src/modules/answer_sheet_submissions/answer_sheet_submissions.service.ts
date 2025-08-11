@@ -29,6 +29,8 @@ type TrackerInsertObject = {
   created_at: Date;
   resultsHistory: ResultHistoryItem[];
   identifier?: string;
+  created_by?: string;
+  updated_by?: string;
 };
 type ResultHistoryItem = {
   date: string;
@@ -126,28 +128,36 @@ export class AnswerSheetSubmissionsService {
           userId: createAnswerSheetSubmissionDto.userId,
         },
       });
-
+      let result;
       if (existing) {
-        this.loggerService.error(
-          'Answer Sheet Submission with this Question Set Id already exists.',
-          'CONFLICT',
-          apiId,
-          createAnswerSheetSubmissionDto.questionSetId,
+        //update
+        const updateObject = this.transformToInsertObject(
+          createAnswerSheetSubmissionDto,
         );
-        return APIResponse.error(
-          response,
+        updateObject.created_at = existing.created_at;
+        updateObject.created_by = existing.created_by;
+        updateObject.updated_by = createAnswerSheetSubmissionDto.createdBy;
+        await this.answerSheetSubmissionsRepository.update(
+          existing.id,
+          updateObject,
+        );
+        result = existing;
+      } else {
+        //create
+        const insertObject = this.transformToInsertObject(
+          createAnswerSheetSubmissionDto,
+        );
+        insertObject.created_by = createAnswerSheetSubmissionDto.createdBy;
+        insertObject.updated_by = createAnswerSheetSubmissionDto.createdBy;
+        result = await this.answerSheetSubmissionsRepository.save(insertObject);
+      }
+      if (result) {
+        this.loggerService.log(
+          'Answer Sheet submitted successfully.',
           apiId,
-          'Answer Sheet Submission with this question_set_id already exists.',
-          'CONFLICT',
-          HttpStatus.CONFLICT,
+          result.id,
         );
       }
-
-      const insertObject = this.transformToInsertObject(
-        createAnswerSheetSubmissionDto,
-      );
-      const result =
-        await this.answerSheetSubmissionsRepository.save(insertObject);
       let payload: SubmitAssessmentToAiDto = {
         questionSetId: result.questionSetId,
         userId: result.userId,
@@ -156,10 +166,6 @@ export class AnswerSheetSubmissionsService {
       };
 
       //call external API send result.id as identifier
-      // Call external AI API
-      // internal and external API objcet are same
-
-      this.loggerService.log('request for API: ', apiId);
       const generatedAssessmentResponse =
         await this.callExternalAiApiForEvaluation(payload);
       this.loggerService.log(
@@ -167,14 +173,6 @@ export class AnswerSheetSubmissionsService {
         apiId,
         result.id,
       );
-
-      if (result) {
-        this.loggerService.log(
-          'Answer Sheet submitted successfully.',
-          apiId,
-          result.id,
-        );
-      }
       return APIResponse.success(
         response,
         apiId,
