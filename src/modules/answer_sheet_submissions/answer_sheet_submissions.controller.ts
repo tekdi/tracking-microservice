@@ -93,7 +93,7 @@ export class AnswerSheetSubmissionsController {
     @Body('message') responseMessage: string,
     @Res() response: Response,
   ) {
-    return this.answerSheetSubmissionsService.updateStatusByQuestionSetId(
+    return this.answerSheetSubmissionsService.updateStatusById(
       Id,
       status,
       responseMessage,
