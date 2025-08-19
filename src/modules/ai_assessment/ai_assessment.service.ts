@@ -128,14 +128,14 @@ export class AiAssessmentService {
   ) {
     const apiId = 'api.create.aiAssessment';
     try {
-      console.log('createAiAssessmentDto', createAiAssessmentDto);
       // Check if record exists for question_set_id
       const existing = await this.aiAssessmentRepository.findOne({
         where: { question_set_id: createAiAssessmentDto.questionSetId },
       });
       if (existing) {
         this.loggerService.error(
-          'AI Assessment with this Question Set Id already exists.',
+          'AI Assessment with this Question Set Id already exists. questionSetId: ' +
+            createAiAssessmentDto.questionSetId,
           'CONFLICT',
           apiId,
           createAiAssessmentDto.questionSetId,
@@ -157,15 +157,18 @@ export class AiAssessmentService {
       );
       const generatedQuestionResponse =
         await this.callExternalAiApi(externalApiObject);
+      this.loggerService.log(
+        'External AI API called successfully. request: ' +
+          JSON.stringify(externalApiObject) +
+          ' response: ' +
+          JSON.stringify(generatedQuestionResponse),
+        apiId,
+        result.id,
+      );
 
       if (generatedQuestionResponse.status == 'Pending') {
         generatedQuestionResponse.status = 'PROCESSING';
       }
-      this.loggerService.log(
-        'External AI API called successfully.',
-        apiId,
-        result.id,
-      );
 
       // Update database with external API response data
       await this.aiAssessmentRepository.update(result.id, {
@@ -200,7 +203,8 @@ export class AiAssessmentService {
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
       this.loggerService.error(
-        'Something went wrong in AI assessment creation',
+        'Something went wrong in AI assessment creation , questionsetId: ' +
+          createAiAssessmentDto.questionSetId,
         errorMessage,
         apiId,
         createAiAssessmentDto.questionSetId,
@@ -270,7 +274,8 @@ export class AiAssessmentService {
       });
       if (!record) {
         this.loggerService.error(
-          'No AI Assessment found for the given Question Set Id.',
+          'No AI Assessment found for the given Question Set Id ' +
+            questionSetId,
           'NOT_FOUND',
           apiId,
           questionSetId,

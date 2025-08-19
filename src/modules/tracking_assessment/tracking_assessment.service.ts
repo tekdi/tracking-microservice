@@ -635,6 +635,7 @@ export class TrackingAssessmentService {
               FROM 
                   assessment_tracking
               WHERE 
+              "evaluatedBy" IS DISTINCT FROM 'AI' AND
               "userId" = $1 
                   AND "courseId" IN (${courseId_text}) 
                   AND "unitId" IN (${unitId_text}) 

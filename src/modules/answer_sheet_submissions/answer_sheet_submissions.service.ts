@@ -8,13 +8,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
-import { IsUUID, isUUID } from 'class-validator';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
-import { KafkaService } from 'src/kafka/kafka.service';
 import { AnswerSheetSubmissions } from './entities/answer-sheet-submissions-entity';
 import { AnswerSheetSubmissionsCreateDto } from './dto/answer-sheet-submissions-create-dto';
 import axios from 'axios';
@@ -130,6 +126,15 @@ export class AnswerSheetSubmissionsService {
       });
       let result;
       if (existing) {
+        this.loggerService.log(
+          'Answer Sheet allready uploaded for this user: ' +
+            createAnswerSheetSubmissionDto.userId +
+            ' for question set: ' +
+            createAnswerSheetSubmissionDto.questionSetId +
+            '. Updating existing record.',
+          apiId,
+          existing.id,
+        );
         //update
         const updateObject = this.transformToInsertObject(
           createAnswerSheetSubmissionDto,
@@ -153,7 +158,9 @@ export class AnswerSheetSubmissionsService {
       }
       if (result) {
         this.loggerService.log(
-          'Answer Sheet submitted successfully.',
+          'Answer Sheet submitted successfully.' +
+            'request: ' +
+            JSON.stringify(createAnswerSheetSubmissionDto),
           apiId,
           result.id,
         );
@@ -169,7 +176,11 @@ export class AnswerSheetSubmissionsService {
       const generatedAssessmentResponse =
         await this.callExternalAiApiForEvaluation(payload);
       this.loggerService.log(
-        'External AI API called successfully.',
+        'External AI API called successfully.' +
+          'request: ' +
+          JSON.stringify(payload) +
+          'response: ' +
+          JSON.stringify(generatedAssessmentResponse),
         apiId,
         result.id,
       );
@@ -183,7 +194,9 @@ export class AnswerSheetSubmissionsService {
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
       this.loggerService.error(
-        'Something went wrong in Answer Sheet Submission',
+        'Something went wrong in Answer Sheet Submission' +
+          'request: ' +
+          JSON.stringify(createAnswerSheetSubmissionDto),
         errorMessage,
         apiId,
         createAnswerSheetSubmissionDto.questionSetId,
@@ -256,7 +269,7 @@ export class AnswerSheetSubmissionsService {
     }
   }
 
-  public async updateStatusByQuestionSetId(
+  public async updateStatusById(
     Id: string,
     status: 'PROCESSING' | 'COMPLETED' | 'FAILED',
     responseMessage,
@@ -291,7 +304,10 @@ export class AnswerSheetSubmissionsService {
       delete record.resultsHistory;
 
       this.loggerService.log(
-        'Answer Sheet Submission status updated successfully.',
+        'Answer Sheet Submission status updated successfully. Id: ' +
+          Id +
+          'status: ' +
+          status,
         apiId,
         record.id,
       );
@@ -313,7 +329,8 @@ export class AnswerSheetSubmissionsService {
       return APIResponse.error(
         response,
         apiId,
-        'Something went wrong while updating Answer Sheet Submission status',
+        'Something went wrong while updating Answer Sheet Submission status Id: ' +
+          Id,
         errorMessage,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
