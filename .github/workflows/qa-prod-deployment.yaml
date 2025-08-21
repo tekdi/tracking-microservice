@@ -1,4 +1,4 @@
-name: Deploy to AWS EKS
+name: Deploy Tracking Service to AWS EKS
 
 on:
   workflow_dispatch:
@@ -13,13 +13,21 @@ on:
 
 jobs:
   deploy:
-    name: Deploy tracking-service to AWS EKS
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
+
+      - name: Validate environment input
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          if [[ "$ENV" != "qa" && "$ENV" != "prod" ]]; then
+            echo "Error: Invalid environment '$ENV'. Must be 'qa' or 'prod'."
+            exit 1
+          fi
+          echo "ENVIRONMENT=$ENV" >> $GITHUB_ENV
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -28,45 +36,47 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Create manifest directory if not exists
+      - name: Create manifest directory
         run: mkdir -p manifest
 
       - name: Generate ConfigMap YAML
         env:
-          ENV_CONTENT: ${{ github.event.inputs.environment == 'prod' && secrets.ENV_FILE_CONTENT_PROD || secrets.ENV_FILE_CONTENT_QA }}
-        run: |
-          echo "$ENV_CONTENT" > manifest/configmap.yaml
-          ls -ltra manifest
+          ENV_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
+        run: echo "$ENV_CONTENT" > manifest/configmap.yaml
 
       - name: Set environment-specific variables
         run: |
-          if [ "${{ github.event.inputs.environment }}" == "qa" ]; then
-            echo "EKS_CLUSTER_NAME=${{ secrets.EKS_CLUSTER_NAME_QA }}" >> $GITHUB_ENV
-            echo "NAMESPACE=microservices-qa" >> $GITHUB_ENV
-            echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY_QA }}" >> $GITHUB_ENV
+          if [ "$ENVIRONMENT" == "prod" ]; then
+            EKS_CLUSTER_NAME="${{ secrets.EKS_CLUSTER_NAME_PROD }}"
+            ECR_REPOSITORY="${{ secrets.ECR_REPOSITORY_PROD }}"
+            NAMESPACE="default"
           else
-            echo "EKS_CLUSTER_NAME=${{ secrets.EKS_CLUSTER_NAME_PROD }}" >> $GITHUB_ENV
-            echo "NAMESPACE=default" >> $GITHUB_ENV
-            echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY_PROD }}" >> $GITHUB_ENV
+            EKS_CLUSTER_NAME="${{ secrets.EKS_CLUSTER_NAME_QA }}"
+            ECR_REPOSITORY="${{ secrets.ECR_REPOSITORY_QA }}"
+            NAMESPACE="microservices-qa"
           fi
-          echo "IMAGE_TAG=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
-          echo "FULL_IMAGE=$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
-          echo "Using image $FULL_IMAGE in namespace $NAMESPACE"
 
-      - name: Update Deployment Manifest
+          # Fail fast if any variable is empty
+          if [ -z "$EKS_CLUSTER_NAME" ] || [ -z "$ECR_REPOSITORY" ] || [ -z "$NAMESPACE" ]; then
+            echo "Error: One of the environment variables is missing!"
+            exit 1
+          fi
+
+          FULL_IMAGE="$ECR_REPOSITORY:${{ github.event.inputs.tag }}"
+
+          echo "EKS_CLUSTER_NAME=$EKS_CLUSTER_NAME" >> $GITHUB_ENV
+          echo "ECR_REPOSITORY=$ECR_REPOSITORY" >> $GITHUB_ENV
+          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
+          echo "FULL_IMAGE=$FULL_IMAGE" >> $GITHUB_ENV
+
+      - name: Update deployment manifest
         run: |
           envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
-          ls -ltra manifest/
-
-      - name: Update kubeconfig for EKS
-        run: |
-          aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region ${{ secrets.AWS_REGION }}
+          sed -i "s|REPLACE_IMAGE|${FULL_IMAGE}|g" manifest/tracking-service-updated.yaml
 
       - name: Deploy to AWS EKS
         run: |
+          aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region ${{ secrets.AWS_REGION }}
           kubectl apply -f manifest/tracking-service-updated.yaml -n $NAMESPACE
           kubectl apply -f manifest/configmap.yaml -n $NAMESPACE
           sleep 10
