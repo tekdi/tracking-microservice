@@ -17,9 +17,11 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
 
     steps:
+      # Step 1: Checkout code
       - name: Check out repository
         uses: actions/checkout@v2
 
+      # Step 2: Validate input environment
       - name: Validate environment input
         run: |
           ENV="${{ github.event.inputs.environment }}"
@@ -29,6 +31,7 @@ jobs:
           fi
           echo "ENVIRONMENT=$ENV" >> $GITHUB_ENV
 
+      # Step 3: Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -36,44 +39,53 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      # Step 4: Create manifest directory
       - name: Create manifest directory
         run: mkdir -p manifest
 
+      # Step 5: Generate ConfigMap YAML
       - name: Generate ConfigMap YAML
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
         run: echo "$ENV_CONTENT" > manifest/configmap.yaml
 
+      # Step 6: Set environment-specific variables
       - name: Set environment-specific variables
         run: |
           if [ "$ENVIRONMENT" == "prod" ]; then
-            EKS_CLUSTER_NAME="${{ secrets.EKS_CLUSTER_NAME_PROD }}"
-            ECR_REPOSITORY="${{ secrets.ECR_REPOSITORY_PROD }}"
+            # Use Prod secrets (can be empty if you want to skip Prod)
+            EKS_CLUSTER_NAME="${{ secrets.EKS_CLUSTER_NAME }}"
+            ECR_REPOSITORY="${{ secrets.ECR_REPOSITORY }}"
             NAMESPACE="default"
           else
-            EKS_CLUSTER_NAME="${{ secrets.EKS_CLUSTER_NAME_QA }}"
-            ECR_REPOSITORY="${{ secrets.ECR_REPOSITORY_QA }}"
+            # QA always uses the same secrets
+            EKS_CLUSTER_NAME="${{ secrets.EKS_CLUSTER_NAME }}"
+            ECR_REPOSITORY="${{ secrets.ECR_REPOSITORY }}"
             NAMESPACE="microservices-qa"
           fi
 
-          # Fail fast if any variable is empty
-          if [ -z "$EKS_CLUSTER_NAME" ] || [ -z "$ECR_REPOSITORY" ] || [ -z "$NAMESPACE" ]; then
-            echo "Error: One of the environment variables is missing!"
+          # Fail fast only if required secrets for THIS environment are missing
+          if [ "$ENVIRONMENT" == "prod" ] && ( [ -z "$EKS_CLUSTER_NAME" ] || [ -z "$ECR_REPOSITORY" ] ); then
+            echo "Error: Required secrets for Prod are missing!"
             exit 1
           fi
 
+          # Construct full image URI
           FULL_IMAGE="$ECR_REPOSITORY:${{ github.event.inputs.tag }}"
 
+          # Export variables for later steps
           echo "EKS_CLUSTER_NAME=$EKS_CLUSTER_NAME" >> $GITHUB_ENV
           echo "ECR_REPOSITORY=$ECR_REPOSITORY" >> $GITHUB_ENV
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
           echo "FULL_IMAGE=$FULL_IMAGE" >> $GITHUB_ENV
 
+      # Step 7: Update deployment manifest
       - name: Update deployment manifest
         run: |
           envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
           sed -i "s|REPLACE_IMAGE|${FULL_IMAGE}|g" manifest/tracking-service-updated.yaml
 
+      # Step 8: Deploy to AWS EKS
       - name: Deploy to AWS EKS
         run: |
           aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region ${{ secrets.AWS_REGION }}
