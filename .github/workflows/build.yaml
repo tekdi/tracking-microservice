@@ -22,19 +22,24 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.BUILD_AWS_REGION }}
+
       - name: Log in to Amazon ECR
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION_NAME }}
         run: |
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ secrets.ECR_ACCOUNT }}
+          aws ecr get-login-password --region ${{ secrets.BUILD_AWS_REGION }} \
+            | docker login --username AWS --password-stdin ${{ secrets.BUILD_ECR_REGISTRY }}
 
       - name: Build, Tag, and Push Docker Image
-        env:
-          ECR_REPOSITORY: ${{ secrets.BUILD_ECR_REGISTRY }}
         run: |
-          TAG="${GITHUB_REF##*/}"
-          docker build -t $ECR_REPOSITORY:$TAG .
-          docker push $ECR_REPOSITORY:$TAG
-          docker rmi $ECR_REPOSITORY:$TAG
+          TAG="${GITHUB_REF##*/}"   # e.g. v1.0.0
+          IMAGE_URI="${{ secrets.BUILD_ECR_REGISTRY }}/${{ secrets.BUILD_ECR_REPOSITORY }}:$TAG"
+
+          echo "Building image: $IMAGE_URI"
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+          docker rmi $IMAGE_URI
