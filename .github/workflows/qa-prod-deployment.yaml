@@ -1,0 +1,67 @@
+name: Deploy to AWS EKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (qa or prod)"
+        required: true
+        default: "qa"
+      tag:
+        description: "Image tag to deploy"
+        required: true
+
+jobs:
+  deploy:
+    name: Deploy to AWS EKS
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create manifest directory if not exists
+        run: mkdir -p manifest
+
+      - name: Generate ConfigMap YAML
+        env:
+          ENV_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
+        run: |
+          echo "$ENV_CONTENT" > manifest/configmap.yaml
+          ls -ltra manifest
+
+      - name: Update Deployment Manifest
+        env:
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
+          ls -ltra manifest/
+
+      - name: Deploy to AWS EKS
+        env:
+          EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
+
+          # QA → namespace: microservices-qa
+          # PROD → namespace: default
+          if [ "${{ github.event.inputs.environment }}" == "qa" ]; then
+            NAMESPACE="microservices-qa"
+          else
+            NAMESPACE="default"
+          fi
+
+          kubectl apply -f manifest/tracking-service-updated.yaml -n $NAMESPACE
+          kubectl apply -f manifest/configmap.yaml -n $NAMESPACE
+          sleep 10
+          kubectl get pods -n $NAMESPACE | grep tracking
