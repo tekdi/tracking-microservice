@@ -18,6 +18,8 @@ jobs:
   build:
     name: Build and Push Docker Image to AWS ECR
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'qa' }} # Use input or default to qa
+
     steps:
       - name: Check out code
         uses: actions/checkout@v2
@@ -25,20 +27,19 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.BUILD_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.BUILD_AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.BUILD_AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Log in to Amazon ECR
         run: |
-          aws ecr get-login-password --region ${{ secrets.BUILD_AWS_REGION }} \
-            | docker login --username AWS --password-stdin ${{ secrets.BUILD_ECR_REGISTRY }}
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
+            | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
       - name: Build, Tag, and Push Docker Image
         run: |
-          TAG="${GITHUB_REF##*/}"   # e.g. v1.0.0
-          IMAGE_URI="${{ secrets.BUILD_ECR_REGISTRY }}/${{ secrets.BUILD_ECR_REPOSITORY }}:$TAG"
-
+          TAG="${{ github.event.inputs.tag || github.ref_name }}" # Use input tag or tag from push
+          IMAGE_URI="${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:$TAG"
           echo "Building image: $IMAGE_URI"
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
