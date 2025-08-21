@@ -49,9 +49,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # Step 5: Prepare ConfigMap
+      # Step 5: Generate ConfigMap YAML safely
       - name: Generate ConfigMap YAML
-        run: echo "${{ secrets.ENV_FILE_CONTENT }}" > manifest/configmap.yaml
+        run: |
+          mkdir -p manifest
+          cat <<EOF > manifest/configmap.yaml
+          ${{ secrets.ENV_FILE_CONTENT }}
+          EOF
 
       # Step 6: Login to Amazon ECR
       - name: Login to Amazon ECR
