@@ -141,6 +141,10 @@ export class TrackingAssessmentService {
   ) {
     const apiId = 'api.create.assessment';
     try {
+      // Extract tenantId from request headers
+      console.log(request.headers);
+      const tenantId = request.headers.tenantId ||  request.headers.tenantid || null;
+      
       const allowedKeys = [
         'assessmentTrackingId',
         'userId',
@@ -190,6 +194,11 @@ export class TrackingAssessmentService {
           JSON.stringify('Please entire valid UUID.'),
           HttpStatus.BAD_REQUEST,
         );
+      }
+
+      // Add tenantId to the DTO if present
+      if (tenantId) {
+        createAssessmentTrackingDto['tenantId'] = tenantId;
       }
 
       const result = await this.assessmentTrackingRepository.save(

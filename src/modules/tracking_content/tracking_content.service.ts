@@ -138,6 +138,9 @@ export class TrackingContentService {
   ) {
     const apiId = 'api.create.content';
     try {
+      // Extract tenantId from request headers
+      const tenantId = request.headers['x-tenant-id'] || null;
+      
       const allowedKeys = [
         'contentTrackingId',
         'userId',
@@ -188,6 +191,11 @@ export class TrackingContentService {
       //get detailsObject for extract details
       const detailsObject = createContentTrackingDto.detailsObject;
       delete createContentTrackingDto.detailsObject;
+
+      // Add tenantId to the DTO if present
+      if (tenantId) {
+        createContentTrackingDto['tenantId'] = tenantId;
+      }
 
       //find contentTracking
       const result_content = await this.dataSource.query(

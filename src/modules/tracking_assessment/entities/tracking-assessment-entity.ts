@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { IsOptional, IsUUID } from 'class-validator';
 
 @Entity({ name: "assessment_tracking" })
 export class AssessmentTracking {
@@ -43,4 +44,9 @@ export class AssessmentTracking {
 
   @Column()
   unitId: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  tenantId: string;
 }
