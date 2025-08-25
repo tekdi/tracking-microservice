@@ -1,9 +1,6 @@
 name: TRACKING-TAG-BASED-DEPLOYMENT
 
 on:
-  push:
-    tags:
-      - 'v*'  # Trigger on version tags
   workflow_dispatch:
     inputs:
       environment:
@@ -11,8 +8,8 @@ on:
         required: true
         default: "qa"
       tag:
-        description: "Image tag to deploy (used for workflow_dispatch)"
-        required: false
+        description: "Image tag to deploy"
+        required: true
 
 jobs:
   deploy:
@@ -24,24 +21,18 @@ jobs:
       # Step 1: Checkout code
       - name: Check out repository
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
 
       # Step 2: Set TAG environment variable
       - name: Set TAG environment variable
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-          else
-            TAG="${{ github.event.inputs.tag }}"
-          fi
+          TAG="${{ github.event.inputs.tag }}"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
       # Step 3: Debug TAG value
       - name: Debug TAG value
         run: echo "TAG value:${{ env.TAG }}"
 
-      # Step 4: Configure AWS credentials
+      # Step 4: Configure AWS credentials (from environment-specific secrets)
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -57,34 +48,25 @@ jobs:
           ${{ secrets.ENV_FILE_CONTENT }}
           EOF
 
-      # Step 6: Login to Amazon ECR
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
-
-      # Step 7: Build, tag, and push Docker image
-      - name: Build, tag, and push image to Amazon ECR
-        env:
-          IMAGE_TAG: ${{ env.TAG }}
-        run: |
-          docker build -t ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG} .
-          docker push ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}
-
-      # Step 8: Update Deployment Manifest
+      # Step 6: Update Deployment Manifest
       - name: Update Deployment Manifest
         env:
-          FULL_IMAGE: "${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ env.TAG }}"
+          IMAGE_TAG: ${{ env.TAG }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         run: |
+          mkdir -p manifest
           envsubst < manifest/tracking-service.yaml > manifest/tracking-service-updated.yaml
           echo "Updated deployment manifest:"
           cat manifest/tracking-service-updated.yaml
 
-      # Step 9: Deploy to AWS EKS
+      # Step 7: Deploy to AWS EKS
       - name: Deploy to AWS EKS
         env:
           EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
           NAMESPACE: ${{ github.event.inputs.environment == 'prod' && 'default' || 'microservices-qa' }}
         run: |
-          aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region ${{ secrets.AWS_REGION }}
+          aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
           kubectl apply -f manifest/tracking-service-updated.yaml -n $NAMESPACE
           kubectl apply -f manifest/configmap.yaml -n $NAMESPACE
           sleep 10
