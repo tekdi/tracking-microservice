@@ -266,4 +266,47 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       `Tracking ${fullEventType} event published for tracking ${courseId}`,
     );
   }
+
+  async publishContentTrackingEvent(
+    eventType: 'created' | 'updated' | 'deleted',
+    trackingData: any,
+    contentTrackingId: string,
+  ): Promise<void> {
+    if (!this.isKafkaEnabled) {
+      this.logger.warn('Kafka is disabled. Skipping content tracking event publish.');
+      return; // Do nothing if Kafka is disabled
+    }
+
+    const topic = this.configService.get<string>(
+      'KAFKA_TOPIC',
+      'content-topic',
+    );
+    let fullEventType = '';
+    switch (eventType) {
+      case 'created':
+        fullEventType = 'CONTENT_TRACKING_CREATED';
+        break;
+      case 'updated':
+        fullEventType = 'CONTENT_TRACKING_UPDATED';
+        break;
+      case 'deleted':
+        fullEventType = 'CONTENT_TRACKING_DELETED';
+        break;
+      default:
+        fullEventType = 'UNKNOWN_EVENT';
+        break;
+    }
+
+    const payload = {
+      eventType: fullEventType,
+      timestamp: new Date().toISOString(),
+      contentTrackingId,
+      data: trackingData,
+    };
+
+    await this.publishMessage(topic, payload, contentTrackingId);
+    this.logger.log(
+      `Content tracking ${fullEventType} event published for tracking ${contentTrackingId}`,
+    );
+  }
 }
