@@ -44,6 +44,25 @@ export class TrackingAssessmentService {
     response: Response,
   ) {
     const apiId = 'api.get.assessmentTrackingId';
+    
+    // Extract tenantId from request headers
+    const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+    if (!tenantId) {
+      this.loggerService.error(
+        'tenantId is required in the header',
+        'BAD_REQUEST',
+        apiId,
+        assessmentTrackingId,
+      );
+      return APIResponse.error(
+        response,
+        apiId,
+        'tenantId is required in the header',
+        'BAD_REQUEST',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    
     if (!isUUID(assessmentTrackingId)) {
       this.loggerService.error(
         'Please Enter Valid UUID',
@@ -61,7 +80,8 @@ export class TrackingAssessmentService {
     }
     try {
       const ttl = this.ttl;
-      const cachedData: any = await this.cacheService.get(assessmentTrackingId);
+      const cacheKey = `${assessmentTrackingId}_${tenantId}`;
+      const cachedData: any = await this.cacheService.get(cacheKey);
       if (cachedData) {
         this.loggerService.log(
           'Assessment data fetch successfully.',
@@ -76,7 +96,7 @@ export class TrackingAssessmentService {
           'Assessment data fetch successfully.',
         );
       }
-      const result = await this.findAssessment(assessmentTrackingId);
+      const result = await this.findAssessment(assessmentTrackingId, tenantId);
       if (!result) {
         this.loggerService.error(
           'No data found.',
@@ -92,7 +112,7 @@ export class TrackingAssessmentService {
           HttpStatus.NOT_FOUND,
         );
       }
-      await this.cacheService.set(assessmentTrackingId, result, ttl);
+      await this.cacheService.set(cacheKey, result, ttl);
       this.loggerService.log(
         'Assessment data fetch successfully.',
         apiId,
@@ -123,11 +143,17 @@ export class TrackingAssessmentService {
     }
   }
 
-  public async findAssessment(assessmentTrackingId) {
+  public async findAssessment(assessmentTrackingId, tenantId = null) {
+    const whereCondition: any = {
+      assessmentTrackingId: assessmentTrackingId,
+    };
+    
+    if (tenantId) {
+      whereCondition.tenantId = tenantId;
+    }
+    
     const result = await this.assessmentTrackingRepository.findOne({
-      where: {
-        assessmentTrackingId: assessmentTrackingId,
-      },
+      where: whereCondition,
     });
     if (result) {
       return result;
@@ -277,14 +303,30 @@ export class TrackingAssessmentService {
     response: Response,
   ) {
     try {
+      // Extract tenantId from request headers
+      const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+      if (!tenantId) {
+        this.loggerService.error(
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          'searchAssessmentTracking',
+        );
+        return response.status(400).send({
+          success: false,
+          message: 'tenantId is required in the header',
+          data: {},
+        });
+      }
+
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId","userId","courseId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent","unitId","tenantId" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4`,
+        `SELECT "assessmentTrackingId","userId","courseId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent","unitId","tenantId" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
         [
           searchFilter?.userId,
           searchFilter?.contentId,
           searchFilter?.courseId,
           searchFilter?.unitId,
+          tenantId,
         ],
       );
       for (let i = 0; i < result.length; i++) {
@@ -323,6 +365,21 @@ export class TrackingAssessmentService {
     response: Response,
   ) {
     try {
+      // Extract tenantId from request headers
+      const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+      if (!tenantId) {
+        this.loggerService.error(
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          'searchStatusAssessmentTracking',
+        );
+        return response.status(400).send({
+          success: false,
+          message: 'tenantId is required in the header',
+          data: {},
+        });
+      }
+
       let output_result = [];
       let contentIdArray = searchFilter?.contentId;
       let contentId_text = '';
@@ -374,6 +431,7 @@ export class TrackingAssessmentService {
                   "updatedOn",
                   "timeSpent",
                   "unitId",
+                  "tenantId",
                   ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
               FROM 
                   assessment_tracking
@@ -381,7 +439,8 @@ export class TrackingAssessmentService {
                   "userId" = $1 
                   AND "courseId" IN (${courseId_text}) 
                   AND "unitId" IN (${unitId_text}) 
-                  AND "contentId" IN (${contentId_text}) 
+                  AND "contentId" IN (${contentId_text})
+                  AND "tenantId" = $2
           )
           SELECT 
               "assessmentTrackingId",
@@ -395,12 +454,13 @@ export class TrackingAssessmentService {
               "totalScore",
               "updatedOn",
               "timeSpent",
-              "unitId"
+              "unitId",
+              "tenantId"
           FROM 
               latest_assessment
           WHERE 
               row_num = 1;`,
-          [userId],
+          [userId, tenantId],
         );
         for (let j = 0; j < result.length; j++) {
           let temp_result = result[j];
@@ -469,12 +529,30 @@ export class TrackingAssessmentService {
     const apiId = 'api.list.assessment';
 
     try {
+      // Extract tenantId from request headers
+      const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+      if (!tenantId) {
+        this.loggerService.error(
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          apiId,
+        );
+        return APIResponse.error(
+          response,
+          apiId,
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       const filterKeys = [
         'assessmentTrackingId',
         'userId',
         'courseId',
         'unitId',
         'contentId',
+        'tenantId',
       ];
       const paginationKeys = ['pageSize', 'page'];
       const sortKeys = ['field', 'order'];
@@ -539,6 +617,9 @@ export class TrackingAssessmentService {
           whereClause[key] = value;
         });
       }
+
+      // Always add tenantId to whereClause for tenant isolation
+      whereClause['tenantId'] = tenantId;
 
       if (pagination && Object.keys(pagination).length > 0) {
         const invalidKey = await this.invalidKeyCheck(
