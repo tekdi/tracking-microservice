@@ -142,7 +142,6 @@ export class TrackingAssessmentService {
     const apiId = 'api.create.assessment';
     try {
       // Extract tenantId from request headers
-      console.log(request.headers);
       const tenantId = request.headers.tenantId ||  request.headers.tenantid || null;
       
       const allowedKeys = [
@@ -280,7 +279,7 @@ export class TrackingAssessmentService {
     try {
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId","userId","courseId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent","unitId" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4`,
+        `SELECT "assessmentTrackingId","userId","courseId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent","unitId","tenantId" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4`,
         [
           searchFilter?.userId,
           searchFilter?.contentId,
@@ -840,9 +839,7 @@ export class TrackingAssessmentService {
           trackingData = { assessmentTrackingId };
         }
       }
-      
-      console.log(trackingData);
-      
+            
       await this.kafkaService.publishTrackingEvent(eventType, trackingData, assessmentTrackingId);
     } catch (error) {
       // Handle/log error silently

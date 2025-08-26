@@ -286,7 +286,7 @@ export class TrackingContentService {
     try {
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "contentTrackingId","userId","courseId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn","unitId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4`,
+        `SELECT "contentTrackingId","userId","courseId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn","unitId","tenantId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4`,
         [
           searchFilter?.userId,
           searchFilter?.contentId,
@@ -477,7 +477,7 @@ export class TrackingContentService {
         for (let jj = 0; jj < courseIdArray.length; jj++) {
           let courseId = courseIdArray[jj];
           const result = await this.dataSource.query(
-            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 order by "createdOn" asc;`,
+            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId","tenantId" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 order by "createdOn" asc;`,
             [userId, courseId],
           );
           let in_progress = 0;
@@ -561,7 +561,7 @@ export class TrackingContentService {
         for (let jj = 0; jj < unitIdArray.length; jj++) {
           let unitId = unitIdArray[jj];
           const result = await this.dataSource.query(
-            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "unitId"=$3 order by "createdOn" asc;`,
+            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId","tenantId" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "unitId"=$3 order by "createdOn" asc;`,
             [userId, courseId, unitId],
           );
           let in_progress = 0;
