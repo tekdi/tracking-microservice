@@ -41,6 +41,25 @@ export class TrackingContentService {
     response: Response,
   ) {
     const apiId = 'api.get.contentTrackingId';
+    
+    // Extract tenantId from request headers
+    const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+    if (!tenantId) {
+      this.loggerService.error(
+        'tenantId is required in the header',
+        'BAD_REQUEST',
+        apiId,
+        contentTrackingId,
+      );
+      return APIResponse.error(
+        response,
+        apiId,
+        'tenantId is required in the header',
+        'BAD_REQUEST',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    
     if (!isUUID(contentTrackingId)) {
       this.loggerService.error(
         'Please Enter Valid UUID',
@@ -58,7 +77,8 @@ export class TrackingContentService {
     }
     try {
       const ttl = this.ttl;
-      const cachedData: any = await this.cacheService.get(contentTrackingId);
+      const cacheKey = `${contentTrackingId}_${tenantId}`;
+      const cachedData: any = await this.cacheService.get(cacheKey);
       if (cachedData) {
         this.loggerService.log(
           'Content data fetch successfully.',
@@ -73,7 +93,7 @@ export class TrackingContentService {
           'Content data fetch successfully.',
         );
       }
-      const result = await this.findContent(contentTrackingId);
+      const result = await this.findContent(contentTrackingId, tenantId);
       if (!result) {
         this.loggerService.error(
           'No data found.',
@@ -89,7 +109,7 @@ export class TrackingContentService {
           HttpStatus.NOT_FOUND,
         );
       }
-      await this.cacheService.set(contentTrackingId, result, ttl);
+      await this.cacheService.set(cacheKey, result, ttl);
       this.loggerService.log(
         'Content data fetch successfully.',
         apiId,
@@ -120,11 +140,17 @@ export class TrackingContentService {
     }
   }
 
-  public async findContent(contentTrackingId) {
+  public async findContent(contentTrackingId, tenantId = null) {
+    const whereCondition: any = {
+      contentTrackingId: contentTrackingId,
+    };
+    
+    if (tenantId) {
+      whereCondition.tenantId = tenantId;
+    }
+    
     const result = await this.contentTrackingRepository.findOne({
-      where: {
-        contentTrackingId: contentTrackingId,
-      },
+      where: whereCondition,
     });
     if (result) {
       return result;
@@ -138,6 +164,9 @@ export class TrackingContentService {
   ) {
     const apiId = 'api.create.content';
     try {
+      // Extract tenantId from request headers
+      const tenantId = request.headers['x-tenant-id'] || null;
+      
       const allowedKeys = [
         'contentTrackingId',
         'userId',
@@ -188,6 +217,11 @@ export class TrackingContentService {
       //get detailsObject for extract details
       const detailsObject = createContentTrackingDto.detailsObject;
       delete createContentTrackingDto.detailsObject;
+
+      // Add tenantId to the DTO if present
+      if (tenantId) {
+        createContentTrackingDto['tenantId'] = tenantId;
+      }
 
       //find contentTracking
       const result_content = await this.dataSource.query(
@@ -276,14 +310,30 @@ export class TrackingContentService {
     response: Response,
   ) {
     try {
+      // Extract tenantId from request headers
+      const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+      if (!tenantId) {
+        this.loggerService.error(
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          'searchContentTracking',
+        );
+        return response.status(400).send({
+          success: false,
+          message: 'tenantId is required in the header',
+          data: {},
+        });
+      }
+
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "contentTrackingId","userId","courseId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn","unitId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4`,
+        `SELECT "contentTrackingId","userId","courseId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn","unitId","tenantId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
         [
           searchFilter?.userId,
           searchFilter?.contentId,
           searchFilter?.courseId,
           searchFilter?.unitId,
+          tenantId,
         ],
       );
       for (let i = 0; i < result.length; i++) {
@@ -322,6 +372,21 @@ export class TrackingContentService {
     response: Response,
   ) {
     try {
+      // Extract tenantId from request headers
+      const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+      if (!tenantId) {
+        this.loggerService.error(
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          'searchStatusContentTracking',
+        );
+        return response.status(400).send({
+          success: false,
+          message: 'tenantId is required in the header',
+          data: {},
+        });
+      }
+
       let output_result = [];
       let contentIdArray = searchFilter?.contentId;
       let contentId_text = '';
@@ -371,6 +436,7 @@ export class TrackingContentService {
                   "lastAccessOn",
                   "updatedOn",
                   "unitId",
+                  "tenantId",
                   ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
               FROM 
                   content_tracking
@@ -378,7 +444,8 @@ export class TrackingContentService {
                   "userId" = $1 
                   AND "courseId" IN (${courseId_text}) 
                   AND "unitId" IN (${unitId_text}) 
-                  AND "contentId" IN (${contentId_text}) 
+                  AND "contentId" IN (${contentId_text})
+                  AND "tenantId" = $2
           )
           SELECT 
               "contentTrackingId",
@@ -390,12 +457,13 @@ export class TrackingContentService {
               "createdOn",
               "lastAccessOn",
               "updatedOn",
-              "unitId"
+              "unitId",
+              "tenantId"
           FROM 
               latest_content
           WHERE 
               row_num = 1;`,
-          [userId],
+          [userId, tenantId],
         );
         //find out details
         let output_result_details = [];
@@ -459,6 +527,21 @@ export class TrackingContentService {
     response: Response,
   ) {
     try {
+      // Extract tenantId from request headers
+      const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+      if (!tenantId) {
+        this.loggerService.error(
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          'searchStatusCourseTracking',
+        );
+        return response.status(400).send({
+          success: false,
+          message: 'tenantId is required in the header',
+          data: {},
+        });
+      }
+
       //courseId
       let courseIdArray = searchFilter?.courseId;
       let userIdArray = searchFilter?.userId;
@@ -469,8 +552,8 @@ export class TrackingContentService {
         for (let jj = 0; jj < courseIdArray.length; jj++) {
           let courseId = courseIdArray[jj];
           const result = await this.dataSource.query(
-            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 order by "createdOn" asc;`,
-            [userId, courseId],
+            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId","tenantId" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "tenantId"=$3 order by "createdOn" asc;`,
+            [userId, courseId, tenantId],
           );
           let in_progress = 0;
           let completed = 0;
@@ -542,6 +625,21 @@ export class TrackingContentService {
     response: Response,
   ) {
     try {
+      // Extract tenantId from request headers
+      const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+      if (!tenantId) {
+        this.loggerService.error(
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          'searchStatusUnitTracking',
+        );
+        return response.status(400).send({
+          success: false,
+          message: 'tenantId is required in the header',
+          data: {},
+        });
+      }
+
       //courseId
       let courseId = searchFilter?.courseId;
       let unitIdArray = searchFilter?.unitId;
@@ -553,8 +651,8 @@ export class TrackingContentService {
         for (let jj = 0; jj < unitIdArray.length; jj++) {
           let unitId = unitIdArray[jj];
           const result = await this.dataSource.query(
-            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "unitId"=$3 order by "createdOn" asc;`,
-            [userId, courseId, unitId],
+            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId","tenantId" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "unitId"=$3 and "tenantId"=$4 order by "createdOn" asc;`,
+            [userId, courseId, unitId, tenantId],
           );
           let in_progress = 0;
           let completed = 0;
@@ -629,12 +727,30 @@ export class TrackingContentService {
     const apiId = 'api.list.content';
 
     try {
+      // Extract tenantId from request headers
+      const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+      if (!tenantId) {
+        this.loggerService.error(
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          apiId,
+        );
+        return APIResponse.error(
+          response,
+          apiId,
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       const filterKeys = [
         'contentTrackingId',
         'userId',
         'courseId',
         'unitId',
         'contentId',
+        'tenantId',
       ];
       const paginationKeys = ['pageSize', 'page'];
       const sortKeys = ['field', 'order'];
@@ -698,6 +814,9 @@ export class TrackingContentService {
           whereClause[key] = value;
         });
       }
+
+      // Always add tenantId to whereClause for tenant isolation
+      whereClause['tenantId'] = tenantId;
 
       if (pagination && Object.keys(pagination).length > 0) {
         const invalidKey = await this.invalidKeyCheck(
