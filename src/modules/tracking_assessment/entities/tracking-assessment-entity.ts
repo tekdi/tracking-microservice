@@ -1,6 +1,6 @@
 import { IsEnum, IsOptional } from 'class-validator';
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
-import { IsOptional, IsUUID } from 'class-validator';
+import { IsUUID } from 'class-validator';
 
 export enum EvaluationType {
   AI = 'AI',
@@ -58,7 +58,7 @@ export class AssessmentTracking {
   @IsOptional()
   @IsUUID()
   tenantId: string;
-  
+
   @Column()
   showFlag: boolean;
 
