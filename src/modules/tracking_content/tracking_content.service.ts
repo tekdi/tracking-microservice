@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { ContentTracking } from 'src/modules/tracking_content/entities/tracking-content-entity';
 import { ContentTrackingDetail } from 'src/modules/tracking_content/entities/tracking-content-details-entity';
-import { Repository } from 'typeorm';
+import { Repository, MoreThan } from 'typeorm';
 import { CreateContentTrackingDto } from './dto/tracking-content-create-dto';
 import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
@@ -18,6 +18,7 @@ import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
+import { KafkaService } from 'src/kafka/kafka.service';
 
 @Injectable()
 export class TrackingContentService {
@@ -31,6 +32,7 @@ export class TrackingContentService {
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private dataSource: DataSource,
     private loggerService: LoggerService,
+    private readonly kafkaService: KafkaService,
   ) {
     this.ttl = this.configService.get('TTL');
   }
@@ -165,7 +167,23 @@ export class TrackingContentService {
     const apiId = 'api.create.content';
     try {
       // Extract tenantId from request headers
-      const tenantId = request.headers['x-tenant-id'] || null;
+      const tenantId = request.headers.tenantId || request.headers.tenantid || request.headers['x-tenant-id'] || null;
+      
+      // Validate tenantId is required
+      if (!tenantId) {
+        this.loggerService.error(
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          apiId,
+        );
+        return APIResponse.error(
+          response,
+          apiId,
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       
       const allowedKeys = [
         'contentTrackingId',
@@ -244,6 +262,7 @@ export class TrackingContentService {
       }
 
       //save content details
+      let savedDetails = [];
       try {
         let testId = contentTrackingId;
         let details = detailsObject;
@@ -275,11 +294,16 @@ export class TrackingContentService {
         const result_score =
           await this.contentTrackingDetailRepository.save(detailsObj);
         //console.log('result_score', result_score);
+        savedDetails = result_score; // Store the newly saved details
       } catch (e) {
         //Error in CreateDetail!
         console.log(e);
       }
       this.loggerService.log('Content submitted successfully.', apiId);
+
+      // Publish content tracking event to Kafka with only new details
+      this.publishContentTrackingEvent('created', contentTrackingId, apiId, savedDetails, tenantId);
+
       return APIResponse.success(
         response,
         apiId,
@@ -1008,6 +1032,25 @@ export class TrackingContentService {
   ) {
     const apiId = 'api.delete.content';
     try {
+      // Extract tenantId from request headers
+      const tenantId = request.headers.tenantId || request.headers.tenantid || request.headers['x-tenant-id'] || null;
+      
+      // Validate tenantId is required
+      if (!tenantId) {
+        this.loggerService.error(
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          apiId,
+        );
+        return APIResponse.error(
+          response,
+          apiId,
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       if (!isUUID(contentTrackingId)) {
         return APIResponse.error(
           response,
@@ -1052,6 +1095,10 @@ export class TrackingContentService {
           apiId,
           contentTrackingId,
         );
+
+        // Publish content tracking delete event to Kafka
+        this.publishContentTrackingEvent('deleted', contentTrackingId, apiId, undefined, tenantId);
+
         return APIResponse.success(
           response,
           apiId,
@@ -1132,6 +1179,61 @@ export class TrackingContentService {
         message: errorMessage,
         data: {},
       });
+    }
+  }
+
+  private async publishContentTrackingEvent(
+    eventType: 'created' | 'updated' | 'deleted',
+    contentTrackingId: string,
+    apiId: string,
+    newDetailsOnly?: any[], // Add parameter for new details
+    tenantId?: string // Add parameter for tenantId
+  ): Promise<void> {
+    try {
+      let trackingData: any = {};
+      
+      if (eventType === 'deleted') {
+        trackingData = {
+          contentTrackingId,
+          deletedAt: new Date().toISOString(),
+          tenantId: tenantId
+        };
+      } else {
+        try {
+          const contentData = await this.contentTrackingRepository.findOne({
+            where: { contentTrackingId }
+          });
+
+          // Use only new details if provided, otherwise get recent details from last 5 minutes
+          let contentDetailsData;
+          if (newDetailsOnly && newDetailsOnly.length > 0) {
+            contentDetailsData = newDetailsOnly;
+          } else {
+            // Fallback: Get only details from the last 5 minutes to avoid historical accumulation
+            const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+            contentDetailsData = await this.contentTrackingDetailRepository.find({
+              where: { 
+                contentTrackingId,
+                createdOn: MoreThan(fiveMinutesAgo)
+              },
+              order: { createdOn: 'DESC' }
+            });
+          }
+
+          trackingData = {
+            ...contentData,
+            details: contentDetailsData,
+            tenantId: tenantId || contentData?.tenantId || null
+          };
+        } catch (error) {
+          trackingData = { contentTrackingId };
+        }
+      }
+            
+      await this.kafkaService.publishContentTrackingEvent(eventType, trackingData, contentTrackingId);
+    } catch (error) {
+      // Handle/log error silently to not break the main flow
+      this.loggerService.error(`Failed to publish content tracking event: ${error.message}`, error.stack, apiId);
     }
   }
 }
