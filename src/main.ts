@@ -2,21 +2,25 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('v1/tracking');
 
   // Enable the global validation pipe
-  app.useGlobalPipes(new ValidationPipe({
-    exceptionFactory: (errors) => {
-      // Custom exception factory to handle validation errors
-      const messages = errors.map(
-        error => `${error.property} - ${Object.values(error.constraints).join(', ')}`
-      );
-      return new BadRequestException(messages);
-    },
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      exceptionFactory: (errors) => {
+        // Custom exception factory to handle validation errors
+        const messages = errors.map(
+          (error) =>
+            `${error.property} - ${Object.values(error.constraints).join(', ')}`,
+        );
+        return new BadRequestException(messages);
+      },
+    }),
+  );
 
   const options = new DocumentBuilder()
     .setTitle('Tracking Assessment API Collection')
@@ -33,6 +37,8 @@ async function bootstrap() {
   app.enableCors();
   await app.listen(3000, () => {
     console.log(`Server is running on port 3000`);
+    app.use(json({ limit: '30mb' }));
+    app.use(urlencoded({ extended: true, limit: '30mb' }));
   });
 }
 bootstrap();

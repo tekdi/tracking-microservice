@@ -8,7 +8,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { AssessmentTracking } from 'src/modules/tracking_assessment/entities/tracking-assessment-entity';
 import { AssessmentTrackingScoreDetail } from 'src/modules/tracking_assessment/entities/tracking-assessment-score-details-entity';
 import { Repository } from 'typeorm';
-import { CreateAssessmentTrackingDto } from './dto/tracking-assessment-create-dto';
+import {
+  CreateAssessmentTrackingDto,
+  EvaluationType,
+} from './dto/tracking-assessment-create-dto';
 import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
 import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dto';
@@ -19,7 +22,9 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
 import { KafkaService } from 'src/kafka/kafka.service';
-
+import { AiAssessment } from '../ai_assessment/entities/ai-assessment-entity';
+import { AnswerSheetSubmissions } from 'src/modules/answer_sheet_submissions/entities/answer-sheet-submissions-entity';
+import { In, Not } from 'typeorm';
 
 @Injectable()
 export class TrackingAssessmentService {
@@ -29,6 +34,10 @@ export class TrackingAssessmentService {
     private assessmentTrackingRepository: Repository<AssessmentTracking>,
     @InjectRepository(AssessmentTrackingScoreDetail)
     private assessmentTrackingScoreDetailRepository: Repository<AssessmentTrackingScoreDetail>,
+    @InjectRepository(AiAssessment)
+    private aiAssessmentRepository: Repository<AiAssessment>,
+    @InjectRepository(AnswerSheetSubmissions)
+    private answersheetSubmissionRepository: Repository<AnswerSheetSubmissions>,
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private dataSource: DataSource,
@@ -183,6 +192,7 @@ export class TrackingAssessmentService {
         'totalScore',
         'timeSpent',
         'unitId',
+        'submitedBy',
       ];
       const errors = await this.validateCreateDTO(
         allowedKeys,
@@ -226,9 +236,63 @@ export class TrackingAssessmentService {
         createAssessmentTrackingDto['tenantId'] = tenantId;
       }
 
-      const result = await this.assessmentTrackingRepository.save(
-        createAssessmentTrackingDto,
-      );
+      // for offline support - check submitedBy
+
+      if (
+        !createAssessmentTrackingDto.submitedBy ||
+        createAssessmentTrackingDto.submitedBy === ''
+      ) {
+        createAssessmentTrackingDto.submitedBy = 'Online';
+      } else {
+        const allowedValues = ['AI', 'Online', 'Manual', 'AI Evaluator'];
+        if (createAssessmentTrackingDto.submitedBy == 'AI Evaluator') {
+          createAssessmentTrackingDto.submitedBy = 'AI';
+        }
+        if (!allowedValues.includes(createAssessmentTrackingDto.submitedBy)) {
+          createAssessmentTrackingDto.submitedBy = 'Online';
+        }
+      }
+      createAssessmentTrackingDto.evaluatedBy =
+        createAssessmentTrackingDto.submitedBy as EvaluationType;
+
+      let result;
+      //replace existing record submitted by AI by manual new record
+      if (createAssessmentTrackingDto.submitedBy == 'Manual') {
+        const existingRecord = await this.assessmentTrackingRepository.findOne({
+          where: {
+            userId: createAssessmentTrackingDto.userId,
+            contentId: createAssessmentTrackingDto.contentId,
+            courseId: createAssessmentTrackingDto.courseId,
+            unitId: createAssessmentTrackingDto.unitId,
+          },
+        });
+        let newRecord;
+        if (existingRecord) {
+          //update same record with all details in createAssessmentTrackingDto
+          newRecord = {
+            ...existingRecord,
+            ...createAssessmentTrackingDto,
+          };
+          newRecord.assessmentTrackingId = existingRecord.assessmentTrackingId;
+          console.log('newRecord: ', newRecord);
+          result = await this.assessmentTrackingRepository.save(newRecord);
+          this.loggerService.log(
+            'Assessment updated successfully.',
+            apiId,
+            createAssessmentTrackingDto.userId,
+          );
+        }
+        //check in assessmentTrackingScoreDetailRepository all records and delete the same
+        let existingScoreDetails =
+          await this.assessmentTrackingScoreDetailRepository.delete({
+            assessmentTrackingId: existingRecord.assessmentTrackingId,
+          });
+      } else {
+        result = await this.assessmentTrackingRepository.save(
+          createAssessmentTrackingDto,
+        );
+      }
+      
       //save score details
       try {
         let testId = result.assessmentTrackingId;
@@ -253,6 +317,7 @@ export class TrackingAssessmentService {
                 score: dataItem?.score,
                 maxScore: dataItem?.item?.maxscore,
                 queTitle: dataItem?.item?.title,
+                feedback: dataItem?.resvalues[0]?.AI_suggestion,
               });
             }
           }
@@ -262,7 +327,12 @@ export class TrackingAssessmentService {
           await this.assessmentTrackingScoreDetailRepository.save(scoreObj);
       } catch (e) {
         //Error in CreateScoreDetail!
-        console.log(e);
+        this.loggerService.error(
+          'Internal Server Error in CreateScoreDetail',
+          'INTERNAL_SERVER_ERROR',
+          apiId,
+          e.message || 'Internal Server Error',
+        );
       }
       this.loggerService.log(
         'Assessment submitted successfully.',
@@ -270,7 +340,7 @@ export class TrackingAssessmentService {
         createAssessmentTrackingDto.userId,
       );
 
-      this.publishTrackingEvent('created', result.assessmentTrackingId, apiId)
+      this.publishTrackingEvent('created', result.assessmentTrackingId, apiId);
 
       return APIResponse.success(
         response,
@@ -297,7 +367,127 @@ export class TrackingAssessmentService {
     }
   }
 
-  public async searchAssessmentTracking(
+  public async updateAssessmentTracking(
+    request: any,
+    assessmentTrackingId: string,
+    updateObject: any,
+    response: any,
+  ) {
+    const apiId = 'api.update.assessment';
+    try {
+      // Validate UUID
+      if (!isUUID(assessmentTrackingId)) {
+        this.loggerService.error(
+          'Please enter a valid UUID.',
+          'BAD_REQUEST',
+          apiId,
+          assessmentTrackingId,
+        );
+        return APIResponse.error(
+          response,
+          apiId,
+          'Please enter a valid UUID.',
+          'Please enter a valid UUID.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Find the existing assessment record
+      const existingRecord = await this.assessmentTrackingRepository.findOne({
+        where: { assessmentTrackingId },
+      });
+      if (!existingRecord) {
+        this.loggerService.error(
+          'Assessment record not found.',
+          'NOT_FOUND',
+          apiId,
+          assessmentTrackingId,
+        );
+        return APIResponse.error(
+          response,
+          apiId,
+          'Assessment record not found.',
+          'NOT_FOUND',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Update the main assessment record
+      const updatedRecord = {
+        ...existingRecord,
+        ...updateObject,
+      };
+      this.loggerService.log(
+        'Updating assessment record with new values.',
+        apiId,
+        updatedRecord,
+      );
+      await this.assessmentTrackingRepository.save(updatedRecord);
+
+      // If assessmentSummary (question details) is present, update related details
+      if (
+        updateObject.assessmentSummary &&
+        Array.isArray(updateObject.assessmentSummary)
+      ) {
+        for (const section of updateObject.assessmentSummary) {
+          const itemData = section?.data;
+          if (itemData) {
+            for (const dataItem of itemData) {
+              // Update the score detail record for this question
+              await this.assessmentTrackingScoreDetailRepository.update(
+                {
+                  assessmentTrackingId,
+                  questionId: dataItem?.item?.id,
+                },
+                {
+                  pass: dataItem?.pass,
+                  sectionId: dataItem?.item?.sectionId,
+                  resValue: dataItem?.resvalues
+                    ? JSON.stringify(dataItem.resvalues)
+                    : '',
+                  duration: dataItem?.duration,
+                  score: dataItem?.score,
+                  maxScore: dataItem?.item?.maxscore,
+                  queTitle: dataItem?.item?.title,
+                  feedback: dataItem?.resvalues?.[0]?.AI_suggestion,
+                },
+              );
+            }
+          }
+        }
+      }
+
+      this.loggerService.log(
+        'Assessment and details updated successfully.',
+        apiId,
+        assessmentTrackingId,
+      );
+      return APIResponse.success(
+        response,
+        apiId,
+        { assessmentTrackingId },
+        HttpStatus.OK,
+        'Assessment and details updated successfully.',
+      );
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        'INTERNAL_SERVER_ERROR',
+        apiId,
+        assessmentTrackingId,
+      );
+      return APIResponse.error(
+        response,
+        apiId,
+        'Failed to update assessment data.',
+        errorMessage,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  public async searchAssessmentTrackingold(
     request: any,
     searchFilter: any,
     response: Response,
@@ -338,6 +528,82 @@ export class TrackingAssessmentService {
         temp_result.score_details = result_score;
         output_result.push(temp_result);
       }
+      this.loggerService.log('success', 'searchAssessmentTracking');
+      return response.status(200).send({
+        success: true,
+        message: 'success',
+        data: output_result,
+      });
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(
+        errorMessage,
+        errorMessage,
+        'searchAssessmentTracking',
+      );
+      return response.status(500).send({
+        success: false,
+        message: errorMessage,
+        data: {},
+      });
+    }
+  }
+  public async searchAssessmentTracking(
+    request: any,
+    searchFilter: any,
+    response: Response,
+  ) {
+    try {
+      let output_result = [];
+
+      // Dynamically build WHERE clause and params
+      const conditions = [];
+      const params = [];
+
+      if (searchFilter?.userId) {
+        conditions.push(`"userId" = $${params.length + 1}`);
+        params.push(searchFilter.userId);
+      }
+
+      if (searchFilter?.contentId) {
+        conditions.push(`"contentId" = $${params.length + 1}`);
+        params.push(searchFilter.contentId);
+      }
+
+      if (searchFilter?.courseId) {
+        conditions.push(`"courseId" = $${params.length + 1}`);
+        params.push(searchFilter.courseId);
+      }
+
+      if (searchFilter?.unitId) {
+        conditions.push(`"unitId" = $${params.length + 1}`);
+        params.push(searchFilter.unitId);
+      }
+      // Always add condition to exclude submittedBy AI
+      conditions.push(`"evaluatedBy" IS DISTINCT FROM 'AI'`);
+      const whereClause =
+        conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      const result = await this.dataSource.query(
+        `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId"
+         FROM assessment_tracking ${whereClause}`,
+        params,
+      );
+
+      for (const tracking of result) {
+        const result_score = await this.dataSource.query(
+          `SELECT "questionId", "pass", "sectionId", "resValue", "duration", "score", "maxScore", "queTitle"
+           FROM assessment_tracking_score_detail WHERE "assessmentTrackingId" = $1`,
+          [tracking.assessmentTrackingId],
+        );
+        //conver score from string to number
+        for (const score of result_score) {
+          score.score = parseFloat(score.score);
+        }
+        tracking.score_details = result_score;
+        output_result.push(tracking);
+      }
+
       this.loggerService.log('success', 'searchAssessmentTracking');
       return response.status(200).send({
         success: true,
@@ -432,14 +698,15 @@ export class TrackingAssessmentService {
                   "timeSpent",
                   "unitId",
                   "tenantId",
-                  ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
+                  ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY CAST("totalScore" AS INTEGER) DESC) as row_num
               FROM 
                   assessment_tracking
               WHERE 
-                  "userId" = $1 
+              "evaluatedBy" IS DISTINCT FROM 'AI' AND
+              "userId" = $1 
                   AND "courseId" IN (${courseId_text}) 
                   AND "unitId" IN (${unitId_text}) 
-                  AND "contentId" IN (${contentId_text})
+                  AND "contentId" IN (${contentId_text}) 
                   AND "tenantId" = $2
           )
           SELECT 
@@ -748,7 +1015,10 @@ export class TrackingAssessmentService {
 
       const [result, total] =
         await this.assessmentTrackingRepository.findAndCount({
-          where: whereClause,
+          where: {
+            ...whereClause,
+            showFlag: Not(false),
+          },
           order: orderOption,
           skip: offset,
           take: limit,
@@ -809,6 +1079,7 @@ export class TrackingAssessmentService {
     response: Response,
   ) {
     const apiId = 'api.delete.assessment';
+
     try {
       if (!isUUID(assessmentTrackingId)) {
         this.loggerService.error(
@@ -892,39 +1163,177 @@ export class TrackingAssessmentService {
   private async publishTrackingEvent(
     eventType: 'created' | 'updated' | 'deleted',
     assessmentTrackingId: string,
-    apiId: string
+    apiId: string,
   ): Promise<void> {
     try {
       let trackingData: any = {};
-      
+
       if (eventType === 'deleted') {
         trackingData = {
           assessmentTrackingId,
-          deletedAt: new Date().toISOString()
+          deletedAt: new Date().toISOString(),
         };
       } else {
         try {
-          const assessmentData = await this.assessmentTrackingRepository.findOne({
-            where: { assessmentTrackingId }
-          });
-  
-          const assessmentScoreData = await this.assessmentTrackingScoreDetailRepository.find({
-            where: { assessmentTrackingId }
-          });
-  
+          const assessmentData =
+            await this.assessmentTrackingRepository.findOne({
+              where: { assessmentTrackingId },
+            });
+
+          const assessmentScoreData =
+            await this.assessmentTrackingScoreDetailRepository.find({
+              where: { assessmentTrackingId },
+            });
+
           trackingData = {
             ...assessmentData,
-            scores: assessmentScoreData
+            scores: assessmentScoreData,
           };
         } catch (error) {
           trackingData = { assessmentTrackingId };
         }
       }
-            
-      await this.kafkaService.publishTrackingEvent(eventType, trackingData, assessmentTrackingId);
+
+      console.log(trackingData);
+
+      await this.kafkaService.publishTrackingEvent(
+        eventType,
+        trackingData,
+        assessmentTrackingId,
+      );
     } catch (error) {
       // Handle/log error silently
     }
   }
-  
+  public async offlineAssessmentCheck(
+    request: any,
+    object: any,
+    response: Response,
+  ) {
+    const apiId = 'api.offline.assessment.check';
+    try {
+      let result = await this.assessmentTrackingRepository.find({
+        where: {
+          userId: In(object.userIds),
+          contentId: object.questionSetId,
+        },
+      });
+      const answersheetSubmissionResponse =
+        await this.answersheetSubmissionRepository.find({
+          where: {
+            userId: In(object.userIds),
+            questionSetId: object.questionSetId,
+          },
+        });
+      const questionsetPendingFromAI = answersheetSubmissionResponse.filter(
+        (item) => item.status == 'RECEIVED',
+      );
+      result = result.filter((item) => {
+        return !questionsetPendingFromAI.some(
+          (pendingItem) =>
+            pendingItem.userId === item.userId &&
+            pendingItem.questionSetId === item.contentId,
+        );
+      });
+      if (result.length === 0 && questionsetPendingFromAI.length === 0) {
+        this.loggerService.log(
+          'No offline assessment records found.',
+          apiId,
+          object,
+        );
+        return APIResponse.success(
+          response,
+          apiId,
+          [],
+          HttpStatus.OK,
+          'No offline assessment records found.',
+        );
+      }
+      let finalResult = [];
+      const bucketUrl = 'https://' + this.configService.get('AWS_BUCKET_NAME');
+      if (result.length > 0) {
+        const groupedByUser = new Map<string, typeof result>();
+
+        for (const item of result) {
+          if (!groupedByUser.has(item.userId)) {
+            groupedByUser.set(item.userId, []);
+          }
+          groupedByUser.get(item.userId).push(item);
+        }
+
+        for (const [userId, records] of groupedByUser.entries()) {
+          let uploadedFlag = false;
+          let submitedFlag = false;
+          let status;
+
+          if (records.length === 1 && records[0].evaluatedBy === 'AI') {
+            uploadedFlag = true;
+            status = 'AI Processed';
+          } else {
+            submitedFlag = records.some(
+              (item) => item.evaluatedBy === 'Manual',
+            );
+            if (submitedFlag) status = 'Approved';
+          }
+
+          let userAnswerSheetRecords = answersheetSubmissionResponse.filter(
+            (item) => {
+              return item.userId === userId;
+            },
+          );
+          const finalFileUrls = userAnswerSheetRecords.flatMap((item) =>
+            item.fileUrls.map((filePath: string) => `${bucketUrl}/${filePath}`),
+          );
+
+          finalResult.push({
+            userId,
+            uploadedFlag,
+            submitedFlag,
+            status,
+            records,
+            fileUrls: finalFileUrls,
+          });
+        }
+      }
+      if (questionsetPendingFromAI.length > 0) {
+        questionsetPendingFromAI.forEach((item) => {
+          let fileUrls = item.fileUrls.map((filePath: string) => {
+            return `${bucketUrl}/${filePath}`;
+          });
+          item.fileUrls = fileUrls;
+          finalResult.push({
+            userId: item.userId,
+            uploadedFlag: false,
+            submitedFlag: false,
+            status: 'AI Pending',
+            records: [item],
+            fileUrls: fileUrls,
+          });
+        });
+      }
+
+      this.loggerService.log(
+        'Status of assessment fetched successfully.',
+        apiId,
+        finalResult.toString(),
+      );
+      return APIResponse.success(
+        response,
+        apiId,
+        finalResult,
+        HttpStatus.OK,
+        'Status of assessment fetched successfully.',
+      );
+    } catch (e) {
+      const errorMessage = e.message || 'Internal Server Error';
+      this.loggerService.error(errorMessage, 'INTERNAL_SERVER_ERROR', apiId);
+      return APIResponse.error(
+        response,
+        apiId,
+        'Failed to check offline assessment status.',
+        errorMessage,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

@@ -28,6 +28,7 @@ import { CreateAssessmentTrackingDto } from './dto/tracking-assessment-create-dt
 import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dto';
 import { TrackingAssessmentService } from './tracking_assessment.service';
 import { CacheInterceptor } from '@nestjs/cache-manager';
+import { CheckSubmissionStatusDto } from '../ai_assessment/dto/check-submission-status-dto';
 //import { AllExceptionsFilter } from 'src/common/utils/exception.filter';
 
 @Controller('assessment')
@@ -121,13 +122,15 @@ export class TrackingAssessmentController {
     @Body() searchAssessmentTrackingDto: SearchAssessmentTrackingDto,
     @Res() response: Response,
   ) {
+    console.log(
+      'searchAssessmentRecords: ' + JSON.stringify(searchAssessmentTrackingDto),
+    );
     return this.trackingAssessmentService.searchAssessmentRecords(
       request,
       searchAssessmentTrackingDto,
       response,
     );
   }
-
   //Delete Assessment
   // @UseFilters(new AllExceptionsFilter())
   @Delete('delete/:assessmentTrackingId')
@@ -143,6 +146,43 @@ export class TrackingAssessmentController {
     return this.trackingAssessmentService.deleteAssessmentTracking(
       request,
       assessmentTrackingId,
+      response,
+    );
+  }
+  //check offline assessment uploaded
+  //Search Assessment
+  //@UseFilters(new AllExceptionsFilter())
+  @Post('/offline-assessment-status')
+  @ApiOkResponse({ description: ' ' })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error' })
+  @ApiBadRequestResponse({ description: 'Bad Request' })
+  async offlineAssessmentCheck(
+    @Req() request: Request,
+    @Body() object: CheckSubmissionStatusDto,
+    @Res() response: Response,
+  ) {
+    return this.trackingAssessmentService.offlineAssessmentCheck(
+      request,
+      object,
+      response,
+    );
+  }
+
+  //Update assessment
+  @Post('update/:assessmentTrackingId')
+  @ApiOkResponse({ description: 'Assessment updated successfully.' })
+  @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
+  @ApiBadRequestResponse({ description: 'Bad Request.' })
+  async updateAssessmentTracking(
+    @Param('assessmentTrackingId') assessmentTrackingId: string,
+    @Req() request: Request,
+    @Body() updateData: any,
+    @Res() response: Response,
+  ) {
+    return this.trackingAssessmentService.updateAssessmentTracking(
+      request,
+      assessmentTrackingId,
+      updateData,
       response,
     );
   }

@@ -10,16 +10,18 @@ import { TrackingContentModule } from 'src/modules/tracking_content/tracking_con
 import { CertificateModule } from './modules/certificate/certificate.module';
 import { UserCertificateModule } from './modules/user_certificate/user_certificate.module';
 import { TelemetryModule } from './modules/telemtry/telemetry.module';
-import { KafkaModule } from "./kafka/kafka.module";
-import kafkaConfig from "./kafka/kafka.config";
+import { KafkaModule } from './kafka/kafka.module';
+import kafkaConfig from './kafka/kafka.config';
+import { AiAssessmentModule } from './modules/ai_assessment/ai_assessment.module';
+import { AnswerSheetSubmissionsModule } from './modules/answer_sheet_submissions/answer_sheet_submissions.module';
 
 @Module({
   imports: [
     TrackingAssessmentModule,
     TrackingContentModule,
-    ConfigModule.forRoot({ 
+    ConfigModule.forRoot({
       load: [kafkaConfig], // Load the Kafka config
-      isGlobal: true 
+      isGlobal: true,
     }),
     DatabaseModule,
     CacheModule.register({ isGlobal: true, store: MemoryStore }),
@@ -27,6 +29,8 @@ import kafkaConfig from "./kafka/kafka.config";
     UserCertificateModule,
     TelemetryModule,
     KafkaModule,
+    AiAssessmentModule,
+    AnswerSheetSubmissionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,7 +1,13 @@
+import { IsEnum, IsOptional } from 'class-validator';
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 import { IsOptional, IsUUID } from 'class-validator';
 
-@Entity({ name: "assessment_tracking" })
+export enum EvaluationType {
+  AI = 'AI',
+  ONLINE = 'Online',
+  MANUAL = 'Manual',
+}
+@Entity({ name: 'assessment_tracking' })
 export class AssessmentTracking {
   @PrimaryGeneratedColumn('uuid')
   assessmentTrackingId: string;
@@ -18,7 +24,10 @@ export class AssessmentTracking {
   @Column()
   attemptId: string;
 
-  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({
+    type: 'timestamp with time zone',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   createdOn: Date;
 
   // @Column()
@@ -49,4 +58,14 @@ export class AssessmentTracking {
   @IsOptional()
   @IsUUID()
   tenantId: string;
+  
+  @Column()
+  showFlag: boolean;
+
+  @IsOptional()
+  @Column()
+  @IsEnum(EvaluationType, {
+    message: 'evaluatedBy must be one of: AI, Online, Manual',
+  })
+  evaluatedBy?: EvaluationType;
 }
