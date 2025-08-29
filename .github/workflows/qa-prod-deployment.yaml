@@ -30,7 +30,8 @@ jobs:
 
       # Step 3: Debug TAG value
       - name: Debug TAG value
-        run: echo "TAG value:${{ env.TAG }}"
+        run: |
+          echo "TAG value: ${{ env.TAG }}"
 
       # Step 4: Configure AWS credentials
       - name: Configure AWS credentials
@@ -40,13 +41,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # Step 5: Write ConfigMap manifest from secret
-      - name: Write ConfigMap manifest
+      # Step 5: Generate ConfigMap YAML
+      - name: Generate ConfigMap YAML
         run: |
           mkdir -p manifest
-          echo "${{ secrets.ENV_FILE_CONTENT }}" > manifest/configmap.yaml
-          echo "Generated ConfigMap:"
-          cat manifest/configmap.yaml
+          cat <<EOF > manifest/configmap.yaml
+          ${{ secrets.ENV_FILE_CONTENT }}
+          EOF
 
       # Step 6: Update Deployment Manifest
       - name: Update Deployment Manifest
@@ -67,15 +68,10 @@ jobs:
           NAMESPACE: ${{ github.event.inputs.environment == 'prod' && 'default' || 'microservices-qa' }}
         run: |
           aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
-          
-          # Apply manifests
           kubectl apply -f manifest/configmap.yaml -n $NAMESPACE
           kubectl apply -f manifest/tracking-service-updated.yaml -n $NAMESPACE
-          
-          # Restart deployment to pick up ConfigMap/image changes
+          # Restart deployment to pick new config + image
           kubectl rollout restart deployment trackingmanagement -n $NAMESPACE
-          
-          # Wait and show pod status
-          sleep 20
-          echo "Pods status after rollout:"
+          sleep 15
+          echo "Pods status after restart:"
           kubectl get pods -n $NAMESPACE | grep tracking
