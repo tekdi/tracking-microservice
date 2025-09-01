@@ -5,6 +5,7 @@ import {
   UpdateDateColumn,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { IsOptional, IsUUID } from 'class-validator';
 
 @Entity({ name: 'user_course_certificate' })
 export class UserCourseCertificate {
@@ -17,7 +18,9 @@ export class UserCourseCertificate {
   @Column()
   courseId: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
   tenantId: string;
 
   @Column()
