@@ -1,4 +1,4 @@
-  name: Tag-based Build Image
+name: Tag-based Build Image
 
 on:
   push:
