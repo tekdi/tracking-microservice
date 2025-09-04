@@ -1,4 +1,3 @@
-
 name: Tag-based Image Build for QA and PROD
 
 on:
