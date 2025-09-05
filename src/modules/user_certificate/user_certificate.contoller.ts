@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Res } from '@nestjs/common';
+import { Controller, Post, Body, Req, Res, UseGuards } from '@nestjs/common';
 import {
   ApiInternalServerErrorResponse,
   ApiBadRequestResponse,
@@ -8,8 +8,10 @@ import { Response } from 'express';
 import { UserCertificateService } from './user_certificate.service..js';
 import { CreateCertificateDto } from './dto/create-user-certificate-dto.js';
 import { CreateUserCourseCertificateDto } from './dto/create-user-course-certificate.dto.js';
+import { TenantGuard } from 'src/common/guards/tenant.guard';
 
 @Controller('user_certificate')
+@UseGuards(TenantGuard)
 export class UserCertificateController {
   constructor(
     private readonly userCertificateService: UserCertificateService,

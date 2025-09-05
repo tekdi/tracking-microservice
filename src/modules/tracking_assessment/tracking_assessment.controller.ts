@@ -10,6 +10,7 @@ import {
   Delete,
   UseInterceptors,
   UseFilters,
+  UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
 import {
@@ -29,10 +30,12 @@ import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dt
 import { TrackingAssessmentService } from './tracking_assessment.service';
 import { CacheInterceptor } from '@nestjs/cache-manager';
 import { CheckSubmissionStatusDto } from '../ai_assessment/dto/check-submission-status-dto';
+import { TenantGuard } from 'src/common/guards/tenant.guard';
 //import { AllExceptionsFilter } from 'src/common/utils/exception.filter';
 
 @Controller('assessment')
 @ApiTags('tracking')
+@UseGuards(TenantGuard)
 export class TrackingAssessmentController {
   constructor(
     private readonly trackingAssessmentService: TrackingAssessmentService,
