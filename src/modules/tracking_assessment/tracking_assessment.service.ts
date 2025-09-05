@@ -231,10 +231,8 @@ export class TrackingAssessmentService {
         );
       }
 
-      // Add tenantId to the DTO if present
-      if (tenantId) {
-        createAssessmentTrackingDto['tenantId'] = tenantId;
-      }
+      // Add tenantId to the DTO (validated by TenantGuard)
+      createAssessmentTrackingDto['tenantId'] = tenantId;
 
       // for offline support - check submitedBy
 
