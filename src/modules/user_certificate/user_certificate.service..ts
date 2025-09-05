@@ -24,19 +24,11 @@ export class UserCertificateService {
   async enrollUserForCourse(
     createUserCertificateDto: CreateCertificateDto,
     response: Response,
-    request: Request,
+    request: any,
   ) {
     let apiId = 'api.create.userEnrollment';
-    const tenantId = request.headers['tenantid'];
-    if (!tenantId) {
-      return APIResponse.error(
-        response,
-        apiId,
-        'tenantId is required in the header',
-        'BAD_REQUEST',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    // Extract tenantId from request (validated by TenantGuard)
+    const tenantId = request.tenantId;
     try {
       // Save the user certificate object to the database
       let data = new UserCourseCertificate();
@@ -89,20 +81,12 @@ export class UserCertificateService {
       );
     }
   }
-  async updateUserStatusForCourse(data, response, request: Request) {
+  async updateUserStatusForCourse(data, response, request: any) {
     let apiId = 'api.update.courseStatus';
-    const tenantId = request.headers['tenantid'];
+    // Extract tenantId from request (validated by TenantGuard)
+    const tenantId = request.tenantId;
     if (!data.status) {
       data.status = 'completed';
-    }
-    if (!tenantId) {
-      return APIResponse.error(
-        response,
-        apiId,
-        'tenantId is required in the header',
-        'BAD_REQUEST',
-        HttpStatus.BAD_REQUEST,
-      );
     }
     try {
       const userCertificate =
@@ -164,18 +148,10 @@ export class UserCertificateService {
       );
     }
   }
-  async fetchUserStatusForCourse(data, response, request: Request) {
+  async fetchUserStatusForCourse(data, response, request: any) {
     let apiId = 'api.get.courseStatus';
-    const tenantId = request.headers['tenantid'];
-    if (!tenantId) {
-      return APIResponse.error(
-        response,
-        apiId,
-        'tenantId is required in the header',
-        'BAD_REQUEST',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    // Extract tenantId from request (validated by TenantGuard)
+    const tenantId = request.tenantId;
     try {
       const userCertificate =
         await this.userCourseCertificateRepository.findOne({
@@ -277,19 +253,11 @@ export class UserCertificateService {
   async importUserDataForCertificate(
     createUserCertificateDto: CreateUserCourseCertificateDto,
     response: Response,
-    request: Request,
+    request: any,
   ) {
     let apiId = 'api.import.userCertificate';
-    const tenantId = request.headers['tenantid'];
-    if (!tenantId) {
-      return APIResponse.error(
-        response,
-        apiId,
-        'tenantId is required in the header',
-        'BAD_REQUEST',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    // Extract tenantId from request (validated by TenantGuard)
+    const tenantId = request.tenantId;
     try {
       //check if record with tenantId, userId and courseId exist
       const userCertificate =

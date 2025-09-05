@@ -16,8 +16,7 @@ export class TenantGuard implements CanActivate {
     // Extract tenantId from request headers
     const tenantId = request.headers.tenantId || 
                      request.headers.tenantid || 
-                     request.headers['x-tenant-id'] || 
-                     null;
+                     request.headers['x-tenant-id'];
     
     // Validate tenantId is required
     if (!tenantId) {
