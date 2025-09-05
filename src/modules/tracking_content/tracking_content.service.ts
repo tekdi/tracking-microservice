@@ -165,7 +165,23 @@ export class TrackingContentService {
     const apiId = 'api.create.content';
     try {
       // Extract tenantId from request headers
-      const tenantId = request.headers['x-tenant-id'] || null;
+      const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+      
+      // Validate tenantId is required
+      if (!tenantId) {
+        this.loggerService.error(
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          apiId,
+        );
+        return APIResponse.error(
+          response,
+          apiId,
+          'tenantId is required in the header',
+          'BAD_REQUEST',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       
       const allowedKeys = [
         'contentTrackingId',
