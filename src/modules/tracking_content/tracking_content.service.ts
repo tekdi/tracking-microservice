@@ -164,8 +164,8 @@ export class TrackingContentService {
   ) {
     const apiId = 'api.create.content';
     try {
-      // Extract tenantId from request headers
-      const tenantId = request.headers['x-tenant-id'] || null;
+      // Extract tenantId from request (validated by TenantGuard)
+      const tenantId = request.tenantId;
       
       const allowedKeys = [
         'contentTrackingId',

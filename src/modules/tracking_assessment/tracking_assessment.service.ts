@@ -176,9 +176,9 @@ export class TrackingAssessmentService {
   ) {
     const apiId = 'api.create.assessment';
     try {
-      // Extract tenantId from request headers
-      const tenantId = request.headers.tenantId ||  request.headers.tenantid || null;
-      
+      // Extract tenantId from request (validated by TenantGuard)
+      const tenantId = request.tenantId;
+
       const allowedKeys = [
         'assessmentTrackingId',
         'userId',
