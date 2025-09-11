@@ -26,12 +26,15 @@ export class AssessmentTrackingScoreDetail {
   @Column('numeric')
   duration: number;
 
-  @Column('numeric')
-  score: number;
+  @Column()
+  score: string;
 
   @Column('numeric')
   maxScore: number;
 
   @Column()
   queTitle: string;
+
+  @Column()
+  feedback: string;
 }

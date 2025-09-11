@@ -166,24 +166,8 @@ export class TrackingContentService {
   ) {
     const apiId = 'api.create.content';
     try {
-      // Extract tenantId from request headers
-      const tenantId = request.headers.tenantId || request.headers.tenantid || request.headers['x-tenant-id'] || null;
-      
-      // Validate tenantId is required
-      if (!tenantId) {
-        this.loggerService.error(
-          'tenantId is required in the header',
-          'BAD_REQUEST',
-          apiId,
-        );
-        return APIResponse.error(
-          response,
-          apiId,
-          'tenantId is required in the header',
-          'BAD_REQUEST',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+      // Extract tenantId from request (validated by TenantGuard)
+      const tenantId = request.tenantId;
       
       const allowedKeys = [
         'contentTrackingId',
@@ -236,19 +220,18 @@ export class TrackingContentService {
       const detailsObject = createContentTrackingDto.detailsObject;
       delete createContentTrackingDto.detailsObject;
 
-      // Add tenantId to the DTO if present
-      if (tenantId) {
-        createContentTrackingDto['tenantId'] = tenantId;
-      }
+      // Add tenantId to the DTO (validated by TenantGuard)
+      createContentTrackingDto['tenantId'] = tenantId;
 
       //find contentTracking
       const result_content = await this.dataSource.query(
-        `SELECT "contentTrackingId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4`,
+        `SELECT "contentTrackingId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
         [
           createContentTrackingDto?.userId,
           createContentTrackingDto?.contentId,
           createContentTrackingDto?.courseId,
           createContentTrackingDto?.unitId,
+          createContentTrackingDto?.tenantId
         ],
       );
       let contentTrackingId = '';

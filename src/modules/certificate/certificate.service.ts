@@ -187,6 +187,15 @@ export class CertificateService {
     response,
   ) {
     let apiId = 'api.issueCertificate';
+    const today = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      month: 'long',
+      year: 'numeric',
+    };
+    const formattedIssuanceDate = today.toLocaleDateString('en-US', options);
+
+    this.loggerService.log('Formatted issuance date:', formattedIssuanceDate); // e.g., "July 2025"
+
     try {
       //get credentialId
       let learnerDid = await this.generateDidByUserId(issueCredential.userId);
@@ -218,6 +227,8 @@ export class CertificateService {
             userId: issueCredential.userId,
             courseId: issueCredential.courseId,
             courseName: issueCredential.courseName,
+            issuedOn: issueCredential.issuedOn || formattedIssuanceDate,
+            certificateId: '**Id**',
           },
         },
         credentialSchemaId: this.configService.get('SCHEMA_ID'),
@@ -291,7 +302,7 @@ export class CertificateService {
           Accept: 'text/html',
         },
       });
-
+      response.data = response?.data?.replace('**Id**', credentialId);
       return APIResponse.success(
         res,
         apiId,
@@ -328,6 +339,7 @@ export class CertificateService {
           Accept: 'text/html',
         },
       });
+      response.data = response?.data?.replace('**Id**', credentialId);
 
       // Launch Puppeteer
       const browser = await puppeteer.launch({
@@ -350,7 +362,12 @@ export class CertificateService {
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
-        margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
+        margin: {
+          top: '10mm',
+          bottom: '10mm',
+          left: '0mm',
+          right: '0mm',
+        },
       });
 
       await browser.close();

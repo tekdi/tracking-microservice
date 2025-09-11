@@ -10,6 +10,7 @@ import {
   Delete,
   UseInterceptors,
   UseFilters,
+  UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
 import {
@@ -26,10 +27,12 @@ import { CreateContentTrackingDto } from './dto/tracking-content-create-dto';
 import { SearchContentTrackingDto } from './dto/tracking-content-search-dto';
 import { TrackingContentService } from './tracking_content.service';
 import { CacheInterceptor } from '@nestjs/cache-manager';
+import { TenantGuard } from 'src/common/guards/tenant.guard';
 //import { AllExceptionsFilter } from 'src/common/utils/exception.filter';
 
 @Controller('content')
 @ApiTags('tracking-content')
+@UseGuards(TenantGuard)
 export class TrackingContentController {
   constructor(
     private readonly trackingContentService: TrackingContentService,
