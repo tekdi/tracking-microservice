@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsUUID,
   IsArray,
+  IsOptional,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -85,8 +86,8 @@ export class CreateContentTrackingDto {
   })
   @Expose()
   @IsString()
-  @IsNotEmpty()
-  tenantId: string;
+  @IsOptional()
+  tenantId?: string;
 
   constructor(obj?: Partial<CreateContentTrackingDto>) {
     if (obj) {
