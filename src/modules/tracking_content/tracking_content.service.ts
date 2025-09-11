@@ -180,6 +180,7 @@ export class TrackingContentService {
         'lastAccessOn',
         'detailsObject',
         'unitId',
+        'tenantId',
       ];
       const errors = await this.validateCreateDTO(
         allowedKeys,
