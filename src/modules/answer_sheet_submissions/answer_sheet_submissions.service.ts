@@ -111,6 +111,31 @@ export class AnswerSheetSubmissionsService {
     }
     return false;
   }
+
+  public async fetchEvalutionTypes(questionSetId: string) {
+    const apiUrl =
+      this.configService.get<string>('MIDDLEWARE_SERVICE_BASE_URL') +
+      '/action/questionset/v2/hierarchy/' +
+      questionSetId +
+      '?mode=edit';
+    try {
+      const response = await axios.get(apiUrl, {
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const questionset = response.data?.result?.questionset;
+      
+      return questionset;
+    } catch (error) {
+      console.error('Error fetching question set:', error.message);
+      throw error;
+    }
+  }
+
+
   public async createAnswerSheetSubmission(
     request: any,
     createAnswerSheetSubmissionDto: AnswerSheetSubmissionsCreateDto,
@@ -165,25 +190,28 @@ export class AnswerSheetSubmissionsService {
           result.id,
         );
       }
-      let payload: SubmitAssessmentToAiDto = {
-        questionSetId: result.questionSetId,
-        userId: result.userId,
-        fileUrls: createAnswerSheetSubmissionDto.fileUrls,
-        identifier: result.id,
-      };
-
-      //call external API send result.id as identifier
-      const generatedAssessmentResponse =
-        await this.callExternalAiApiForEvaluation(payload);
-      this.loggerService.log(
-        'External AI API called successfully.' +
-          'request: ' +
-          JSON.stringify(payload) +
-          'response: ' +
-          JSON.stringify(generatedAssessmentResponse),
-        apiId,
-        result.id,
-      );
+      const data = await this.fetchEvalutionTypes(createAnswerSheetSubmissionDto.questionSetId)
+      if(data.evaluationType === 'ai'){
+        let payload: SubmitAssessmentToAiDto = {
+          questionSetId: result.questionSetId,
+          userId: result.userId,
+          fileUrls: createAnswerSheetSubmissionDto.fileUrls,
+          identifier: result.id,
+        };
+  
+        //call external API send result.id as identifier
+        const generatedAssessmentResponse =
+          await this.callExternalAiApiForEvaluation(payload);
+        this.loggerService.log(
+          'External AI API called successfully.' +
+            'request: ' +
+            JSON.stringify(payload) +
+            'response: ' +
+            JSON.stringify(generatedAssessmentResponse),
+          apiId,
+          result.id,
+        );
+      }
       return APIResponse.success(
         response,
         apiId,
