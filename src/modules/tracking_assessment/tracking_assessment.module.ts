@@ -8,6 +8,8 @@ import { LoggerService } from 'src/common/logger/logger.service';
 import { KafkaModule } from 'src/kafka/kafka.module';
 import { AiAssessment } from '../ai_assessment/entities/ai-assessment-entity';
 import { AnswerSheetSubmissions } from '../answer_sheet_submissions/entities/answer-sheet-submissions-entity';
+import { AnswerSheetSubmissionsModule } from '../answer_sheet_submissions/answer_sheet_submissions.module';
+import { AnswerSheetSubmissionsService } from '../answer_sheet_submissions/answer_sheet_submissions.service';
 
 @Module({
   imports: [
@@ -18,8 +20,9 @@ import { AnswerSheetSubmissions } from '../answer_sheet_submissions/entities/ans
       AnswerSheetSubmissions,
     ]),
     KafkaModule,
+    AnswerSheetSubmissionsModule,
   ],
   controllers: [TrackingAssessmentController],
-  providers: [TrackingAssessmentService, LoggerService],
+  providers: [TrackingAssessmentService, LoggerService,AnswerSheetSubmissionsService],
 })
 export class TrackingAssessmentModule {}

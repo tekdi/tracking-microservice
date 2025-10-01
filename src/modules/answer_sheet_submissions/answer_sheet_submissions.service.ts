@@ -178,9 +178,6 @@ export class AnswerSheetSubmissionsService {
         const insertObject = this.transformToInsertObject(
           createAnswerSheetSubmissionDto,
         );
-        if(data.evaluationType === 'offline'){
-          insertObject.status = 'COMPLETED';
-        }
         insertObject.created_by = createAnswerSheetSubmissionDto.createdBy;
         insertObject.updated_by = createAnswerSheetSubmissionDto.createdBy;
         result = await this.answerSheetSubmissionsRepository.save(insertObject);
