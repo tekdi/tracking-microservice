@@ -442,8 +442,73 @@
                 }
             ]
         },
-         {
+        {
             "sourceRoute": "/interface/v1/tracking/assessment/update/:identifier",
+            "type": "POST",
+            "priority": "MUST_HAVE",
+            "inSequence": false,
+            "orchestrated": false,
+            "targetPackages": [
+                {
+                    "basePackageName": "tracking",
+                    "packageName": "shiksha-tracking"
+                }
+            ]
+        },
+        {
+            "sourceRoute": "/interface/v1/tracking/certificate/template",
+            "type": "POST",
+            "priority": "MUST_HAVE",
+            "inSequence": false,
+            "orchestrated": false,
+            "targetPackages": [
+                {
+                    "basePackageName": "tracking",
+                    "packageName": "shiksha-tracking"
+                }
+            ]
+        },
+        {
+            "sourceRoute": "/interface/v1/tracking/certificate/course-template",
+            "type": "POST",
+            "priority": "MUST_HAVE",
+            "inSequence": false,
+            "orchestrated": false,
+            "targetPackages": [
+                {
+                    "basePackageName": "tracking",
+                    "packageName": "shiksha-tracking"
+                }
+            ]
+        },
+        {
+            "sourceRoute": "/interface/v1/tracking/certificate/course-template/list",
+            "type": "POST",
+            "priority": "MUST_HAVE",
+            "inSequence": false,
+            "orchestrated": false,
+            "targetPackages": [
+                {
+                    "basePackageName": "tracking",
+                    "packageName": "shiksha-tracking"
+                }
+            ]
+        },
+        {
+            "sourceRoute": "/interface/v1/tracking/certificate/templates-list",
+            "type": "POST",
+            "priority": "MUST_HAVE",
+            "inSequence": false,
+            "orchestrated": false,
+            "targetPackages": [
+                {
+                    "basePackageName": "tracking",
+                    "packageName": "shiksha-tracking"
+                }
+            ]
+        },
+        {
+            "sourceRoute": "/interface/v1/tracking/certificate/get-template",
             "type": "POST",
             "priority": "MUST_HAVE",
             "inSequence": false,
