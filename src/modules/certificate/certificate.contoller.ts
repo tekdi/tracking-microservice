@@ -185,7 +185,7 @@ export class CertificateController {
     @Headers() headers,
   ) {
     const tenantId = headers['tenantid'];
-    if (tenantId && !isUUID(tenantId)) {
+    if (!tenantId || !isUUID(tenantId)) {
       throw new BadRequestException('Please add valid Tenant ID');
     }
     return this.certificateService.getTemplates(getTemplatesDto, response);
@@ -202,7 +202,7 @@ export class CertificateController {
     @Headers() headers,
   ) {
     const tenantId = headers['tenantid'];
-    if (tenantId && !isUUID(tenantId)) {
+    if (!tenantId || !isUUID(tenantId)) {
       throw new BadRequestException('Please add valid Tenant ID');
     }
     return this.certificateService.getCourseTemplateList(
@@ -223,7 +223,7 @@ export class CertificateController {
     @Headers() headers,
   ) {
     const tenantId = headers['tenantid'];
-    if (tenantId && !isUUID(tenantId)) {
+    if (!tenantId || !isUUID(tenantId)) {
       throw new BadRequestException('Please add valid Tenant ID');
     }
     return this.certificateService.editTemplate(
