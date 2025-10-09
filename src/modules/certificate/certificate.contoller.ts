@@ -13,7 +13,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { CertificateService } from './certificate.service';
 import { IssueCredentialDto } from './dto/issue-certificate-dto';
 import { RenderCertificateDTO } from './dto/render-certificate-dto';

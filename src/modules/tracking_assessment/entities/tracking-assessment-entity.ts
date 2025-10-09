@@ -12,7 +12,7 @@ export class AssessmentTracking {
   @PrimaryGeneratedColumn('uuid')
   assessmentTrackingId: string;
 
-  @Column('uuid')
+  @Column()
   userId: string;
 
   @Column()
@@ -45,7 +45,7 @@ export class AssessmentTracking {
   @Column('double precision')
   totalScore: number;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: 'timestamp with time zone' , default: () => 'CURRENT_TIMESTAMP'})
   updatedOn: Date;
 
   @Column('numeric')

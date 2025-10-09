@@ -4,7 +4,7 @@ import {
   ApiBadRequestResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { UserCertificateService } from './user_certificate.service..js';
 import { CreateCertificateDto } from './dto/create-user-certificate-dto.js';
 import { CreateUserCourseCertificateDto } from './dto/create-user-course-certificate.dto.js';

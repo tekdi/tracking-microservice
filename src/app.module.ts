@@ -15,23 +15,29 @@ import kafkaConfig from './kafka/kafka.config';
 import { AiAssessmentModule } from './modules/ai_assessment/ai_assessment.module';
 import { AnswerSheetSubmissionsModule } from './modules/answer_sheet_submissions/answer_sheet_submissions.module';
 
+const importsArray = [
+  TrackingAssessmentModule,
+  TrackingContentModule,
+  ConfigModule.forRoot({
+    load: [kafkaConfig], // Load the Kafka config
+    isGlobal: true,
+  }),
+  DatabaseModule,
+  CacheModule.register({ isGlobal: true, store: MemoryStore }),
+  CertificateModule,
+  UserCertificateModule,
+  KafkaModule,
+  AiAssessmentModule,
+  AnswerSheetSubmissionsModule,
+];
+
+// Conditionally add TelemetryModule
+if (process.env.DISABLE_TELEMETRY != 'true') {
+  importsArray.push(TelemetryModule);
+}
+
 @Module({
-  imports: [
-    TrackingAssessmentModule,
-    TrackingContentModule,
-    ConfigModule.forRoot({
-      load: [kafkaConfig], // Load the Kafka config
-      isGlobal: true,
-    }),
-    DatabaseModule,
-    CacheModule.register({ isGlobal: true, store: MemoryStore }),
-    CertificateModule,
-    UserCertificateModule,
-    TelemetryModule,
-    KafkaModule,
-    AiAssessmentModule,
-    AnswerSheetSubmissionsModule,
-  ],
+  imports: importsArray,
   controllers: [AppController],
   providers: [AppService],
 })

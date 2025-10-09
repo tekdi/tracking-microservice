@@ -11,6 +11,9 @@ export class TenantGuard implements CanActivate {
   canActivate(
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
+    if(process.env.DISABLE_TELEMETRY == 'true') {
+      return true;
+    }
     const request = context.switchToHttp().getRequest();
     
     // Extract tenantId from request headers
