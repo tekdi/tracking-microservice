@@ -12,7 +12,7 @@ import {
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import {
   ApiBadRequestResponse,
   ApiBody,

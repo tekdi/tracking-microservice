@@ -6,7 +6,7 @@ import {
   ApiBadRequestResponse,
 } from '@nestjs/swagger';
 import { Telemetry } from './entities/telemetry';
-
+import { Request, Response } from 'express';
 @Controller('telemetry')
 export class TelemetryController {
   constructor(private readonly telemetryService: TelemetryService) {}

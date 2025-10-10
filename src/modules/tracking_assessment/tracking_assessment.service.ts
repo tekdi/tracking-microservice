@@ -217,7 +217,7 @@ export class TrackingAssessmentService {
         );
       }
 
-      if (!isUUID(createAssessmentTrackingDto.userId)) {
+      if (!isUUID(createAssessmentTrackingDto.userId) && process.env.DISABLE_TELEMETRY != 'true') {
         this.loggerService.error(
           'Please entire valid UUID.',
           'BAD_REQUEST',
@@ -288,6 +288,37 @@ export class TrackingAssessmentService {
             assessmentTrackingId: existingRecord.assessmentTrackingId,
           });
       } else {
+
+        const existingRecord = await this.assessmentTrackingRepository.findOne({
+          where: {
+            userId: createAssessmentTrackingDto.userId,
+            contentId: createAssessmentTrackingDto.contentId,
+            courseId: createAssessmentTrackingDto.courseId,
+            unitId: createAssessmentTrackingDto.unitId,
+          },
+          order: {
+            totalScore: 'DESC',
+          },
+        });
+        if (existingRecord) {
+          if (
+            existingRecord.totalScore <= createAssessmentTrackingDto.totalScore
+          ) {
+            //update same record with shoefla as false and new record with showfla true
+            let updateRecord = {
+              ...existingRecord,
+              showFlag: false,
+            };
+            await this.assessmentTrackingRepository.save(updateRecord);
+            createAssessmentTrackingDto.showFlag = true;
+          } else {
+            createAssessmentTrackingDto.showFlag = false;
+          }
+        }
+        else {
+          createAssessmentTrackingDto.showFlag = true;
+        }
+
         result = await this.assessmentTrackingRepository.save(
           createAssessmentTrackingDto,
         );
@@ -317,7 +348,7 @@ export class TrackingAssessmentService {
                 score: dataItem?.score,
                 maxScore: dataItem?.item?.maxscore,
                 queTitle: dataItem?.item?.title,
-                feedback: dataItem?.resvalues[0]?.AI_suggestion,
+                feedback: dataItem?.resvalues[0]?.AI_suggestion || 'No feedback',
               });
             }
           }
@@ -583,6 +614,10 @@ export class TrackingAssessmentService {
       conditions.push(`"evaluatedBy" IS DISTINCT FROM 'AI'`);
       const whereClause =
         conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      
+      if(process.env.DISABLE_TELEMETRY =='true'){
+        return await this.gethighestandlatestscore(params,response);
+      }
 
       const result = await this.dataSource.query(
         `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId"
@@ -625,6 +660,55 @@ export class TrackingAssessmentService {
     }
   }
 
+  public async gethighestandlatestscore(params, response) {
+    try {
+      const highestRecords = await this.dataSource.query(
+        `SELECT DISTINCT ON ("contentId") "contentId", "totalScore", "createdOn", "attemptId"
+          FROM assessment_tracking
+          WHERE "userId" = $1 AND "courseId" = $2 AND "unitId" = $3 AND "showFlag" = true
+          ORDER BY "contentId", "totalScore" DESC, "createdOn" DESC`,
+        params,
+      );
+
+      // 2️⃣ Most recent attempt per level (any attempt)
+      const recentRecords = await this.dataSource.query(
+        `SELECT DISTINCT ON ("contentId") "contentId", "totalScore", "createdOn", "attemptId"
+          FROM assessment_tracking
+          WHERE "userId" = $1 AND "courseId" = $2 AND "unitId" = $3
+          ORDER BY "contentId", "createdOn" DESC`,
+        params,
+      );
+
+      // 3️⃣ Merge results per level
+      const levelMap: Record<string, { highest: any; recent: any }> = {};
+
+      for (const rec of highestRecords) {
+        levelMap[rec.contentId] = { highest: rec, recent: null };
+      }
+
+      for (const rec of recentRecords) {
+        if (!levelMap[rec.contentId]) {
+          levelMap[rec.contentId] = { highest: null, recent: rec };
+        } else {
+          levelMap[rec.contentId].recent = rec;
+        }
+      }
+
+      // 4️⃣ Return structured response
+      return response.status(200).send({
+        success: true,
+        message: 'success',
+        data: levelMap,
+      });
+    } catch (error) {
+      return response.status(500).send({
+        success: false,
+        error: error.message,
+        message: 'Internal Server Error',
+      });
+    }
+  }
+  
   public async searchStatusAssessmentTracking(
     request: any,
     searchFilter: any,
