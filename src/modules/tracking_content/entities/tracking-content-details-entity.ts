@@ -1,6 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 
 @Entity({ name: 'content_tracking_details' })
+@Index('idx_content_tracking_details_tracking_id', ['contentTrackingId'])
+@Index('idx_content_tracking_details_user_id', ['userId'])
+@Index('idx_content_tracking_details_eid', ['eid'])
 export class ContentTrackingDetail {
   @PrimaryGeneratedColumn('uuid')
   id: string;
