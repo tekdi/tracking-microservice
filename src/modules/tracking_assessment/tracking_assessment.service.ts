@@ -24,6 +24,7 @@ import { LoggerService } from 'src/common/logger/logger.service';
 import { KafkaService } from 'src/kafka/kafka.service';
 import { AiAssessment } from '../ai_assessment/entities/ai-assessment-entity';
 import { AnswerSheetSubmissions } from 'src/modules/answer_sheet_submissions/entities/answer-sheet-submissions-entity';
+import { AnswerSheetSubmissionsService } from 'src/modules/answer_sheet_submissions/answer_sheet_submissions.service';
 import { In, Not } from 'typeorm';
 
 @Injectable()
@@ -43,6 +44,7 @@ export class TrackingAssessmentService {
     private dataSource: DataSource,
     private loggerService: LoggerService,
     private readonly kafkaService: KafkaService,
+    private readonly answerSheetSubmissionsService: AnswerSheetSubmissionsService,
   ) {
     this.ttl = this.configService.get('TTL');
   }
@@ -1226,7 +1228,19 @@ export class TrackingAssessmentService {
       const questionsetPendingFromAI = answersheetSubmissionResponse.filter(
         (item) => item.status == 'RECEIVED',
       );
+
+      // Get evaluation type for the question set
+      let evaluationType = null;
+        // Use the existing fetchEvalutionTypes method from answer sheet submissions service
+      const questionSetDetails = await this.answerSheetSubmissionsService.fetchEvalutionTypes(object.questionSetId);
+      evaluationType = questionSetDetails.evaluationType;
+
+      // Filter assessment records based on evaluation type
       result = result.filter((item) => {
+        // If evaluation type is 'offline', always keep the record
+        if (evaluationType === 'offline') {
+          return true;
+        }
         return !questionsetPendingFromAI.some(
           (pendingItem) =>
             pendingItem.userId === item.userId &&

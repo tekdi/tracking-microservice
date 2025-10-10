@@ -150,6 +150,7 @@ export class AnswerSheetSubmissionsService {
         },
       });
       let result;
+      const data = await this.fetchEvalutionTypes(createAnswerSheetSubmissionDto.questionSetId)
       if (existing) {
         this.loggerService.log(
           'Answer Sheet allready uploaded for this user: ' +
@@ -190,7 +191,6 @@ export class AnswerSheetSubmissionsService {
           result.id,
         );
       }
-      const data = await this.fetchEvalutionTypes(createAnswerSheetSubmissionDto.questionSetId)
       if(data.evaluationType === 'ai'){
         let payload: SubmitAssessmentToAiDto = {
           questionSetId: result.questionSetId,
