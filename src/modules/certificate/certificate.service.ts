@@ -251,13 +251,6 @@ export class CertificateService {
         certificateId: issueResponse.data.credential.id,
       });
 
-      // Publish Kafka event for course_updated after successful certificate issuance
-      await this.publishCertificateIssuedEvent(
-        issueCredential,
-        issueResponse.data.credential.id,
-        apiId,
-      );
-
       return APIResponse.success(
         response,
         apiId,
@@ -287,9 +280,16 @@ export class CertificateService {
         userCertificate.certificateId = data.certificateId;
         userCertificate.issuedOn = data.issuedOn;
         userCertificate.status = data.status;
-        await this.userCourseCertificateRepository.save(userCertificate);
+        const savedCertificate = await this.userCourseCertificateRepository.save(userCertificate);
+        
+        this.loggerService.log('Successfully updated user certificate');
+        
+        // Publish Kafka event after successful update
+        await this.publishCertificateIssuedEvent(
+          savedCertificate.usercertificateId,
+          'api.updateUserCertificate',
+        );
       }
-      this.loggerService.log('Successfully updated user certificate');
     } catch (error) {
       this.loggerService.error('Error while updating usercertificate', error);
     }
@@ -297,26 +297,45 @@ export class CertificateService {
 
   /**
    * Publish certificate issued event to Kafka with event name 'course_updated'
-   * @param issueCredential - The certificate issuance data
-   * @param certificateId - The issued certificate ID
+   * Fetches complete data from user_course_certificate table and publishes it
+   * @param usercertificateId - The user certificate ID from database
    * @param apiId - API identifier for logging
    */
   private async publishCertificateIssuedEvent(
-    issueCredential: any,
-    certificateId: string,
+    usercertificateId: string,
     apiId: string,
   ): Promise<void> {
     try {
+      // Fetch complete user certificate data from database
+      const userCertificate = await this.userCourseCertificateRepository.findOne({
+        where: { usercertificateId: usercertificateId },
+      });
+
+      if (!userCertificate) {
+        this.loggerService.error(
+          `User certificate not found for ID: ${usercertificateId}`,
+          apiId,
+        );
+        return;
+      }
+
+      // Prepare event data with complete certificate information
       const eventData = {
-        userId: issueCredential.userId,
-        courseId: issueCredential.courseId,
-        courseName: issueCredential.courseName,
-        certificateId: certificateId,
-        firstName: issueCredential.firstName,
-        lastName: issueCredential.lastName,
-        issuanceDate: issueCredential.issuanceDate,
-        expirationDate: issueCredential.expirationDate,
-        status: 'viewCertificate',
+        usercertificateId: userCertificate.usercertificateId,
+        userId: userCertificate.userId,
+        courseId: userCertificate.courseId,
+        certificateId: userCertificate.certificateId,
+        tenantId: userCertificate.tenantId,
+        status: userCertificate.status,
+        issuedOn: userCertificate.issuedOn,
+        completedOn: userCertificate.completedOn,
+        completionPercentage: userCertificate.completionPercentage,
+        lastReadContentId: userCertificate.lastReadContentId,
+        lastReadContentStatus: userCertificate.lastReadContentStatus,
+        progress: userCertificate.progress,
+        createdOn: userCertificate.createdOn,
+        updatedOn: userCertificate.updatedOn,
+        createdBy: userCertificate.createdBy,
         eventType: 'CERTIFICATE_ISSUED',
       };
 
@@ -324,15 +343,15 @@ export class CertificateService {
       await this.kafkaService.publishUserCourseEvent(
         'course_updated',
         eventData,
-        issueCredential.courseId,
+        userCertificate.courseId,
       );
 
       this.loggerService.log(
-        `Certificate issued event published for user ${issueCredential.userId} and course ${issueCredential.courseId}`,
+        `Certificate issued event published for user ${userCertificate.userId} and course ${userCertificate.courseId}`,
         apiId,
       );
     } catch (error) {
-      // Log error but don't fail the certificate issuance
+      // Log error but don't fail the certificate update
       this.loggerService.error(
         `Failed to publish certificate issued event: ${error.message}`,
         apiId,
