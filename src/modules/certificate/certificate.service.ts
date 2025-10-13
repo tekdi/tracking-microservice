@@ -8,6 +8,7 @@ import { UserCourseCertificate } from './entities/user_course_certificate';
 import { Repository } from 'typeorm';
 import { Response } from 'express';
 import puppeteer from 'puppeteer';
+import { KafkaService } from 'src/kafka/kafka.service';
 
 @Injectable()
 export class CertificateService {
@@ -16,6 +17,7 @@ export class CertificateService {
     private userCourseCertificateRepository: Repository<UserCourseCertificate>,
     private configService: ConfigService,
     private loggerService: LoggerService,
+    private readonly kafkaService: KafkaService,
   ) {}
   async generateDid(userId: string, res: Response) {
     let apiId = 'api.generate.did';
@@ -249,6 +251,13 @@ export class CertificateService {
         certificateId: issueResponse.data.credential.id,
       });
 
+      // Publish Kafka event for course_updated after successful certificate issuance
+      await this.publishCertificateIssuedEvent(
+        issueCredential,
+        issueResponse.data.credential.id,
+        apiId,
+      );
+
       return APIResponse.success(
         response,
         apiId,
@@ -283,6 +292,51 @@ export class CertificateService {
       this.loggerService.log('Successfully updated user certificate');
     } catch (error) {
       this.loggerService.error('Error while updating usercertificate', error);
+    }
+  }
+
+  /**
+   * Publish certificate issued event to Kafka with event name 'course_updated'
+   * @param issueCredential - The certificate issuance data
+   * @param certificateId - The issued certificate ID
+   * @param apiId - API identifier for logging
+   */
+  private async publishCertificateIssuedEvent(
+    issueCredential: any,
+    certificateId: string,
+    apiId: string,
+  ): Promise<void> {
+    try {
+      const eventData = {
+        userId: issueCredential.userId,
+        courseId: issueCredential.courseId,
+        courseName: issueCredential.courseName,
+        certificateId: certificateId,
+        firstName: issueCredential.firstName,
+        lastName: issueCredential.lastName,
+        issuanceDate: issueCredential.issuanceDate,
+        expirationDate: issueCredential.expirationDate,
+        status: 'viewCertificate',
+        eventType: 'CERTIFICATE_ISSUED',
+      };
+
+      // Publish event with event name 'course_updated'
+      await this.kafkaService.publishUserCourseEvent(
+        'course_updated',
+        eventData,
+        issueCredential.courseId,
+      );
+
+      this.loggerService.log(
+        `Certificate issued event published for user ${issueCredential.userId} and course ${issueCredential.courseId}`,
+        apiId,
+      );
+    } catch (error) {
+      // Log error but don't fail the certificate issuance
+      this.loggerService.error(
+        `Failed to publish certificate issued event: ${error.message}`,
+        apiId,
+      );
     }
   }
   async renderCredentials(
