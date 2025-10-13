@@ -662,53 +662,116 @@ export class TrackingAssessmentService {
 
   public async gethighestandlatestscore(params, response) {
     try {
-      const highestRecords = await this.dataSource.query(
-        `SELECT DISTINCT ON ("contentId") "contentId", "totalScore", "createdOn", "attemptId"
-          FROM assessment_tracking
-          WHERE "userId" = $1 AND "courseId" = $2 AND "unitId" = $3 AND "showFlag" = true
-          ORDER BY "contentId", "totalScore" DESC, "createdOn" DESC`,
-        params,
-      );
+      const MAX_LEVELS = 10;
+      
+      // Get highest and recent scores
+      const [highestRecords, recentRecords] = await Promise.all([
+        this.dataSource.query(
+          `SELECT DISTINCT ON ("contentId") "contentId", "totalScore", "totalMaxScore", "createdOn", "attemptId"
+           FROM assessment_tracking
+           WHERE "userId" = $1 AND "courseId" = $2 AND "unitId" = $3 AND "showFlag" = true
+           ORDER BY "contentId", "totalScore" DESC, "createdOn" DESC`,
+          params
+        ),
+        this.dataSource.query(
+          `SELECT DISTINCT ON ("contentId") "contentId", "totalScore", "totalMaxScore", "createdOn", "attemptId"
+           FROM assessment_tracking
+           WHERE "userId" = $1 AND "courseId" = $2 AND "unitId" = $3
+           ORDER BY "contentId", "createdOn" DESC`,
+          params
+        )
+      ]);
 
-      // 2️⃣ Most recent attempt per level (any attempt)
-      const recentRecords = await this.dataSource.query(
-        `SELECT DISTINCT ON ("contentId") "contentId", "totalScore", "createdOn", "attemptId"
-          FROM assessment_tracking
-          WHERE "userId" = $1 AND "courseId" = $2 AND "unitId" = $3
-          ORDER BY "contentId", "createdOn" DESC`,
-        params,
-      );
-
-      // 3️⃣ Merge results per level
-      const levelMap: Record<string, { highest: any; recent: any }> = {};
-
-      for (const rec of highestRecords) {
-        levelMap[rec.contentId] = { highest: rec, recent: null };
+      // Initialize all levels
+      const levelMap: Record<string, any> = {};
+      for (let i = 1; i <= MAX_LEVELS; i++) {
+        levelMap[`level${i}`] = {
+          levelNumber: i,
+          highest: null,
+          recent: null,
+          metadata: { scorePercentage: 0, isCompleted: false, isUnlocked: i === 1 }
+        };
       }
 
-      for (const rec of recentRecords) {
-        if (!levelMap[rec.contentId]) {
-          levelMap[rec.contentId] = { highest: null, recent: rec };
-        } else {
-          levelMap[rec.contentId].recent = rec;
+      // Populate highest scores
+      highestRecords.forEach(rec => {
+        if (levelMap[rec.contentId]) {
+          const scorePercentage = rec.totalMaxScore > 0 ? Math.round((rec.totalScore / rec.totalMaxScore) * 100) : 0;
+          levelMap[rec.contentId].highest = { 
+            totalScore: rec.totalScore, 
+            totalMaxScore: rec.totalMaxScore, 
+            createdOn: rec.createdOn 
+          };
+          levelMap[rec.contentId].metadata.scorePercentage = scorePercentage;
+          levelMap[rec.contentId].metadata.isCompleted = scorePercentage >= 80;
+        }
+      });
+
+      // Populate recent attempts
+      recentRecords.forEach(rec => {
+        if (levelMap[rec.contentId]) {
+          levelMap[rec.contentId].recent = { 
+            totalScore: rec.totalScore, 
+            totalMaxScore: rec.totalMaxScore, 
+            createdOn: rec.createdOn 
+          };
+        }
+      });
+
+      // Calculate unlock status
+      for (let i = 2; i <= MAX_LEVELS; i++) {
+        const currentScore = levelMap[`level${i}`].metadata.scorePercentage;
+        const prevScore = levelMap[`level${i - 1}`].metadata.scorePercentage;
+        levelMap[`level${i}`].metadata.isUnlocked = prevScore >= 80 || currentScore >= 80;
+      }
+
+      // Find current level (first unlocked but not completed)
+      let currentLevel = 1;
+      for (let i = 1; i <= MAX_LEVELS; i++) {
+        if (levelMap[`level${i}`].metadata.isUnlocked && !levelMap[`level${i}`].metadata.isCompleted) {
+          currentLevel = i;
+          break;
+        }
+        // If all unlocked levels are completed, set to next locked level
+        if (i === MAX_LEVELS || !levelMap[`level${i + 1}`].metadata.isUnlocked) {
+          currentLevel = i < MAX_LEVELS ? i + 1 : MAX_LEVELS;
+          break;
         }
       }
 
-      // 4️⃣ Return structured response
+      // Filter response (only return relevant levels)
+      const filteredData: Record<string, any> = { level1: levelMap['level1'] };
+      for (let i = 2; i <= MAX_LEVELS; i++) {
+        const levelKey = `level${i}`;
+        const isCompleted = levelMap[levelKey].metadata.isCompleted;
+        const isUnlocked = levelMap[levelKey].metadata.isUnlocked;
+        
+        if (isCompleted || i === currentLevel || (i === currentLevel + 1 && isUnlocked)) {
+          filteredData[levelKey] = levelMap[levelKey];
+        }
+      }
+
       return response.status(200).send({
         success: true,
         message: 'success',
-        data: levelMap,
+        data: filteredData,
+        metadata: { currentLevel, unlockThreshold: 80 }
       });
+
     } catch (error) {
+      this.loggerService.error(
+        `Error in gethighestandlatestscore: ${error.message}`,
+        'INTERNAL_SERVER_ERROR',
+        'gethighestandlatestscore'
+      );
       return response.status(500).send({
         success: false,
-        error: error.message,
-        message: 'Internal Server Error',
+        message: 'Internal server error',
+        data: {}
       });
     }
   }
-  
+
   public async searchStatusAssessmentTracking(
     request: any,
     searchFilter: any,
