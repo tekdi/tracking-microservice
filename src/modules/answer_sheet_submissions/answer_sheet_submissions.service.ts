@@ -19,6 +19,7 @@ import { SubmitAssessmentToAiDto } from '../ai_assessment/dto/submit_assessment_
 type TrackerInsertObject = {
   questionSetId: string;
   userId: string;
+  parentId?: string;
   fileUrls: string[];
   status: 'RECEIVED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   metadata: Record<string, any>;
@@ -220,6 +221,7 @@ export class AnswerSheetSubmissionsService {
         'Answer Sheet submitted successfully.',
       );
     } catch (e) {
+      console.log('error -->>', e);
       const errorMessage = e.message || 'Internal Server Error';
       this.loggerService.error(
         'Something went wrong in Answer Sheet Submission' +
@@ -246,9 +248,16 @@ export class AnswerSheetSubmissionsService {
       const urlObj = new URL(url);
       return urlObj.pathname.slice(1); // removes the leading '/'
     });
+    
+    // Handle parentId logic: If not provided or empty, use questionSetId
+    const parentId = input.parentId && input.parentId.trim() !== '' 
+      ? input.parentId 
+      : input.questionSetId;
+    
     return {
       questionSetId: input.questionSetId,
       userId: input.userId,
+      parentId: parentId,
       fileUrls: fileUrls,
       status: 'RECEIVED',
       metadata: input.metadata,
@@ -388,6 +397,11 @@ export class AnswerSheetSubmissionsService {
         params.push(searchFilter.questionSetId);
       }
 
+      if (searchFilter?.parentId) {
+        conditions.push(`"parent_id" = $${params.length + 1}`);
+        params.push(searchFilter.parentId);
+      }
+
       if (searchFilter?.status) {
         conditions.push(`"status" = $${params.length + 1}`);
         params.push(searchFilter.status);
@@ -402,10 +416,22 @@ export class AnswerSheetSubmissionsService {
         params,
       );
 
+      // Transform parent_id to parentId for camelCase consistency
+      const transformedResult = result.map(row => {
+        if (row.parent_id !== undefined) {
+          const { parent_id, ...rest } = row;
+          return {
+            ...rest,
+            parentId: parent_id
+          };
+        }
+        return row;
+      });
+
       return response.status(200).send({
         success: true,
         message: 'success',
-        data: result,
+        data: transformedResult,
       });
     } catch (error) {
       const errorMessage = error.message || 'Internal Server Error';
