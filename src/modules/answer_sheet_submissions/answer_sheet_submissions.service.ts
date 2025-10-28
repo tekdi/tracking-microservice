@@ -221,7 +221,6 @@ export class AnswerSheetSubmissionsService {
         'Answer Sheet submitted successfully.',
       );
     } catch (e) {
-      console.log('error -->>', e);
       const errorMessage = e.message || 'Internal Server Error';
       this.loggerService.error(
         'Something went wrong in Answer Sheet Submission' +
