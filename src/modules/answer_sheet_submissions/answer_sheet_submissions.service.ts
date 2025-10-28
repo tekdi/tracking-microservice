@@ -416,22 +416,10 @@ export class AnswerSheetSubmissionsService {
         params,
       );
 
-      // Transform parent_id to parentId for camelCase consistency
-      const transformedResult = result.map(row => {
-        if (row.parent_id !== undefined) {
-          const { parent_id, ...rest } = row;
-          return {
-            ...rest,
-            parentId: parent_id
-          };
-        }
-        return row;
-      });
-
       return response.status(200).send({
         success: true,
         message: 'success',
-        data: transformedResult,
+        data: result,
       });
     } catch (error) {
       const errorMessage = error.message || 'Internal Server Error';
