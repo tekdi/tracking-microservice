@@ -616,7 +616,7 @@ export class TrackingAssessmentService {
         conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
       
       if(process.env.DISABLE_TELEMETRY =='true'){
-        return await this.gethighestandlatestscore(params,response);
+        return await this.gethighestandlatestscore(params, response, searchFilter);
       }
 
       const result = await this.dataSource.query(
@@ -660,7 +660,7 @@ export class TrackingAssessmentService {
     }
   }
 
-  public async gethighestandlatestscore(params, response) {
+  public async gethighestandlatestscore(params, response, searchFilter?: any) {
     try {
       const MAX_LEVELS = 10;
       
@@ -739,15 +739,43 @@ export class TrackingAssessmentService {
         }
       }
 
-      // Filter response (only return relevant levels)
-      const filteredData: Record<string, any> = { level1: levelMap['level1'] };
-      for (let i = 2; i <= MAX_LEVELS; i++) {
-        const levelKey = `level${i}`;
-        const isCompleted = levelMap[levelKey].metadata.isCompleted;
-        const isUnlocked = levelMap[levelKey].metadata.isUnlocked;
-        
-        if (isCompleted || i === currentLevel || (i === currentLevel + 1 && isUnlocked)) {
-          filteredData[levelKey] = levelMap[levelKey];
+      // Determine if this is a combined game (combinedLetter, combinedWord, combinedSentence)
+      // Combined games need filtering with 80% validation
+      // Individual games should show ALL levels with any data
+      // Check courseId from searchFilter (params[1] is courseId in SQL query: userId=$1, courseId=$2, unitId=$3)
+      const courseId = searchFilter?.courseId || (params.length >= 2 ? params[1] : null);
+      const isCombinedGame = courseId && 
+        (courseId.toString().startsWith('combinedLetter') || 
+         courseId.toString().startsWith('combinedWord') || 
+         courseId.toString().startsWith('combinedSentence'));
+
+      // Filter response based on game type
+      const filteredData: Record<string, any> = {};
+      
+      if (isCombinedGame) {
+        // For combined games: Use existing logic (only return completed, current, or current+1 if unlocked)
+        filteredData['level1'] = levelMap['level1'];
+        for (let i = 2; i <= MAX_LEVELS; i++) {
+          const levelKey = `level${i}`;
+          const isCompleted = levelMap[levelKey].metadata.isCompleted;
+          const isUnlocked = levelMap[levelKey].metadata.isUnlocked;
+          
+          if (isCompleted || i === currentLevel || (i === currentLevel + 1 && isUnlocked)) {
+            filteredData[levelKey] = levelMap[levelKey];
+          }
+        }
+      } else {
+        // For individual games: Return ALL levels that have been played (have any data)
+        for (let i = 1; i <= MAX_LEVELS; i++) {
+          const levelKey = `level${i}`;
+          // Return level if it has highest score data OR recent attempt data
+          if (levelMap[levelKey].highest || levelMap[levelKey].recent) {
+            filteredData[levelKey] = levelMap[levelKey];
+          }
+        }
+        // Always include level1 even if no data (for first-time users)
+        if (!filteredData['level1']) {
+          filteredData['level1'] = levelMap['level1'];
         }
       }
 
