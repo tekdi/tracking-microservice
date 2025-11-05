@@ -17,6 +17,9 @@ export class AnswerSheetSubmissions {
   @Column({ name: 'question_set_id' })
   questionSetId: string;
 
+  @Column({ name: 'parent_id', type: 'text', nullable: true })
+  parentId: string;
+
   @Column('text', { array: true, name: 'file_urls' })
   fileUrls: string[];
 
