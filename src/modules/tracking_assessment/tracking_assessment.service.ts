@@ -295,28 +295,34 @@ export class TrackingAssessmentService {
             contentId: createAssessmentTrackingDto.contentId,
             courseId: createAssessmentTrackingDto.courseId,
             unitId: createAssessmentTrackingDto.unitId,
+            showFlag: true,
           },
           order: {
             totalScore: 'DESC',
           },
         });
-        if (existingRecord) {
-          if (
-            existingRecord.totalScore <= createAssessmentTrackingDto.totalScore
-          ) {
-            //update same record with shoefla as false and new record with showfla true
-            let updateRecord = {
-              ...existingRecord,
-              showFlag: false,
-            };
-            await this.assessmentTrackingRepository.save(updateRecord);
-            createAssessmentTrackingDto.showFlag = true;
-          } else {
-            createAssessmentTrackingDto.showFlag = false;
+        const axl_accuracysupported_games =['letterHunt']
+        if (!axl_accuracysupported_games.includes(createAssessmentTrackingDto.courseId.toString())) {
+          if (existingRecord) {
+            if (
+              existingRecord.totalScore <= createAssessmentTrackingDto.totalScore
+            ) {
+              //update same record with shoefla as false and new record with showfla true
+              let updateRecord = {
+                ...existingRecord,
+                showFlag: false,
+              };
+              await this.assessmentTrackingRepository.save(updateRecord);
+              createAssessmentTrackingDto.showFlag = true;
+            } else {
+              createAssessmentTrackingDto.showFlag = false;
+            }
           }
-        }
-        else {
-          createAssessmentTrackingDto.showFlag = true;
+          else {
+            createAssessmentTrackingDto.showFlag = true;
+          }
+        } else {
+          createAssessmentTrackingDto.showFlag =await this.updateaxlaccuracyRecords(existingRecord,createAssessmentTrackingDto);
         }
 
         result = await this.assessmentTrackingRepository.save(
@@ -395,6 +401,22 @@ export class TrackingAssessmentService {
         errorMessage,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  public async updateaxlaccuracyRecords(existingRecord,createAssessmentTrackingDto: CreateAssessmentTrackingDto) {
+    let existingAccuracy = (existingRecord.totalScore<=existingRecord.totalMaxScore)? existingRecord.totalScore / existingRecord.totalMaxScore : existingRecord.totalMaxScore / existingRecord.totalScore;
+    let newAccuracy = createAssessmentTrackingDto.totalMaxScore / createAssessmentTrackingDto.totalScore;
+    if (existingAccuracy <= newAccuracy ) {
+      //update same record with shoefla as false and new record with showfla true
+      let updateRecord = {
+        ...existingRecord,
+        showFlag: false,
+      };
+      await this.assessmentTrackingRepository.save(updateRecord);
+      return true;
+    } else {
+      return false;
     }
   }
 
@@ -696,7 +718,9 @@ export class TrackingAssessmentService {
       // Populate highest scores
       highestRecords.forEach(rec => {
         if (levelMap[rec.contentId]) {
-          const scorePercentage = rec.totalMaxScore > 0 ? Math.round((rec.totalScore / rec.totalMaxScore) * 100) : 0;
+          const scorePercentage = rec.totalMaxScore > 0
+           ? (rec.totalScore <= rec.totalMaxScore) ? Math.round((rec.totalScore / rec.totalMaxScore) * 100): (rec.totalMaxScore / rec.totalScore) * 100
+           : 0;
           levelMap[rec.contentId].highest = { 
             totalScore: rec.totalScore, 
             totalMaxScore: rec.totalMaxScore, 
