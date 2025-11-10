@@ -322,7 +322,7 @@ export class TrackingAssessmentService {
             createAssessmentTrackingDto.showFlag = true;
           }
         } else {
-          createAssessmentTrackingDto.showFlag =await this.updateaxlaccuracyRecords(existingRecord,createAssessmentTrackingDto);
+          createAssessmentTrackingDto.showFlag = existingRecord ? await this.updateaxlaccuracyRecords(existingRecord,createAssessmentTrackingDto) : true;
         }
 
         result = await this.assessmentTrackingRepository.save(
