@@ -6,11 +6,13 @@ import {
   IsUUID,
   IsObject,
   IsOptional,
+  IsEnum,
   ValidationOptions,
   registerDecorator,
   ValidationArguments,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { EvaluationType } from "./tracking-assessment-create-dto";
 
 export class setFilters {
   
@@ -64,6 +66,17 @@ export class setFilters {
   @IsOptional()
   @IsNotEmpty()
   contentId: string;
+
+  @ApiPropertyOptional({
+    enum: EvaluationType,
+    description: "Evaluation type: AI, Online, or Manual",
+  })
+  @Expose()
+  @IsOptional()
+  @IsEnum(EvaluationType, {
+    message: 'evaluatedBy must be one of: AI, Online, Manual',
+  })
+  evaluatedBy?: EvaluationType;
 }
 
 export class paginationDto {

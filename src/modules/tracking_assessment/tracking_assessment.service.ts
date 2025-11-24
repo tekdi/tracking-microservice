@@ -510,7 +510,7 @@ export class TrackingAssessmentService {
 
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId","userId","courseId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent","unitId","tenantId" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
+        `SELECT "assessmentTrackingId","userId","courseId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent","unitId","tenantId","evaluatedBy" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
         [
           searchFilter?.userId,
           searchFilter?.contentId,
@@ -585,7 +585,7 @@ export class TrackingAssessmentService {
         conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId"
+        `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId", "tenantId", "evaluatedBy"
          FROM assessment_tracking ${whereClause}`,
         params,
       );
@@ -718,6 +718,7 @@ export class TrackingAssessmentService {
                   "timeSpent",
                   "unitId",
                   "tenantId",
+                  "evaluatedBy",
                   ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY CAST("totalScore" AS INTEGER) DESC) as row_num
               FROM 
                   assessment_tracking
@@ -737,7 +738,8 @@ export class TrackingAssessmentService {
               "updatedOn",
               "timeSpent",
               "unitId",
-              "tenantId"
+              "tenantId",
+              "evaluatedBy"
           FROM 
               latest_assessment
           WHERE 
