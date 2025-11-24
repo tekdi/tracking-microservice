@@ -19,6 +19,7 @@ import { SubmitAssessmentToAiDto } from '../ai_assessment/dto/submit_assessment_
 type TrackerInsertObject = {
   questionSetId: string;
   userId: string;
+  parentId?: string;
   fileUrls: string[];
   status: 'RECEIVED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   metadata: Record<string, any>;
@@ -246,9 +247,16 @@ export class AnswerSheetSubmissionsService {
       const urlObj = new URL(url);
       return urlObj.pathname.slice(1); // removes the leading '/'
     });
+    
+    // Handle parentId logic: If not provided or empty, use questionSetId
+    const parentId = input.parentId && input.parentId.trim() !== '' 
+      ? input.parentId 
+      : input.questionSetId;
+    
     return {
       questionSetId: input.questionSetId,
       userId: input.userId,
+      parentId: parentId,
       fileUrls: fileUrls,
       status: 'RECEIVED',
       metadata: input.metadata,
@@ -386,6 +394,11 @@ export class AnswerSheetSubmissionsService {
       if (searchFilter?.questionSetId) {
         conditions.push(`"question_set_id" = $${params.length + 1}`);
         params.push(searchFilter.questionSetId);
+      }
+
+      if (searchFilter?.parentId) {
+        conditions.push(`"parent_id" = $${params.length + 1}`);
+        params.push(searchFilter.parentId);
       }
 
       if (searchFilter?.status) {

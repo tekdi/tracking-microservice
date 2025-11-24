@@ -8,6 +8,7 @@ import { UserCourseCertificate } from './entities/user_course_certificate';
 import { Repository } from 'typeorm';
 import { Response } from 'express';
 import puppeteer from 'puppeteer';
+import { KafkaService } from 'src/kafka/kafka.service';
 
 @Injectable()
 export class CertificateService {
@@ -16,6 +17,7 @@ export class CertificateService {
     private userCourseCertificateRepository: Repository<UserCourseCertificate>,
     private configService: ConfigService,
     private loggerService: LoggerService,
+    private readonly kafkaService: KafkaService,
   ) {}
   async generateDid(userId: string, res: Response) {
     let apiId = 'api.generate.did';
@@ -278,11 +280,82 @@ export class CertificateService {
         userCertificate.certificateId = data.certificateId;
         userCertificate.issuedOn = data.issuedOn;
         userCertificate.status = data.status;
-        await this.userCourseCertificateRepository.save(userCertificate);
+        const savedCertificate = await this.userCourseCertificateRepository.save(userCertificate);
+        
+        this.loggerService.log('Successfully updated user certificate');
+        
+        // Publish Kafka event after successful update
+        await this.publishCertificateIssuedEvent(
+          savedCertificate.usercertificateId,
+          'api.updateUserCertificate',
+        );
       }
-      this.loggerService.log('Successfully updated user certificate');
     } catch (error) {
       this.loggerService.error('Error while updating usercertificate', error);
+    }
+  }
+
+  /**
+   * Publish certificate issued event to Kafka with event name 'course_updated'
+   * Fetches complete data from user_course_certificate table and publishes it
+   * @param usercertificateId - The user certificate ID from database
+   * @param apiId - API identifier for logging
+   */
+  private async publishCertificateIssuedEvent(
+    usercertificateId: string,
+    apiId: string,
+  ): Promise<void> {
+    try {
+      // Fetch complete user certificate data from database
+      const userCertificate = await this.userCourseCertificateRepository.findOne({
+        where: { usercertificateId: usercertificateId },
+      });
+
+      if (!userCertificate) {
+        this.loggerService.error(
+          `User certificate not found for ID: ${usercertificateId}`,
+          apiId,
+        );
+        return;
+      }
+
+      // Prepare event data with complete certificate information
+      const eventData = {
+        usercertificateId: userCertificate.usercertificateId,
+        userId: userCertificate.userId,
+        courseId: userCertificate.courseId,
+        certificateId: userCertificate.certificateId,
+        tenantId: userCertificate.tenantId,
+        status: userCertificate.status,
+        issuedOn: userCertificate.issuedOn,
+        completedOn: userCertificate.completedOn,
+        completionPercentage: userCertificate.completionPercentage,
+        lastReadContentId: userCertificate.lastReadContentId,
+        lastReadContentStatus: userCertificate.lastReadContentStatus,
+        progress: userCertificate.progress,
+        createdOn: userCertificate.createdOn,
+        updatedOn: userCertificate.updatedOn,
+        createdBy: userCertificate.createdBy,
+        eventType: 'CERTIFICATE_ISSUED',
+      };
+
+      // Publish event with event name 'course_updated'
+      await this.kafkaService.publishUserCourseEvent(
+        'course_updated',
+        eventData,
+        userCertificate.courseId,
+      );
+
+      this.loggerService.log(
+        `Certificate issued event published for user ${userCertificate.userId} and course ${userCertificate.courseId}`,
+        apiId,
+      );
+    } catch (error) {
+      // Log error but don't fail the certificate update
+      this.loggerService.error(
+        `Failed to publish certificate issued event: ${error.message}`,
+        apiId,
+      );
     }
   }
   async renderCredentials(

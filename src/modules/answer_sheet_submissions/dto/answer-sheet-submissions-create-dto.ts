@@ -36,6 +36,10 @@ export class AnswerSheetSubmissionsCreateDto {
   @IsString()
   questionSetId: string;
 
+  @IsOptional()
+  @IsString()
+  parentId?: string;
+
   @IsArray()
   @IsString({ each: true })
   fileUrls: string[];
