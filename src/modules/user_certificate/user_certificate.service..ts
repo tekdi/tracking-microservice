@@ -222,7 +222,15 @@ export class UserCertificateService {
         }
       });
       const count = await queryBuilder.getCount();
-      //queryBuilder.limit(searchObj.limit).offset(searchObj.offset);
+      
+      // Apply limit and offset if provided in request body
+      if (searchObj.limit !== undefined) {
+        queryBuilder.limit(searchObj.limit);
+      }
+      if (searchObj.offset !== undefined) {
+        queryBuilder.offset(searchObj.offset);
+      }
+      
       const result = await queryBuilder.getMany();
       this.loggerService.log('Users status for courses fetched successfully');
       return APIResponse.success(
