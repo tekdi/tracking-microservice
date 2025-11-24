@@ -510,7 +510,7 @@ export class TrackingAssessmentService {
 
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId","userId","courseId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent","unitId","tenantId" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
+        `SELECT "assessmentTrackingId","userId","courseId","contentId","attemptId","createdOn","lastAttemptedOn","totalMaxScore","totalScore","updatedOn","timeSpent","unitId","tenantId","evaluatedBy" FROM assessment_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
         [
           searchFilter?.userId,
           searchFilter?.contentId,
@@ -585,7 +585,7 @@ export class TrackingAssessmentService {
         conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId"
+        `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId", "tenantId", "evaluatedBy"
          FROM assessment_tracking ${whereClause}`,
         params,
       );
@@ -657,31 +657,51 @@ export class TrackingAssessmentService {
           contentId_text = `${contentId_text},'${contentId}'`;
         }
       }
-      //courseId
+      
+      //courseId - optional
       let courseIdArray = searchFilter?.courseId;
       let courseId_text = '';
-      for (let i = 0; i < courseIdArray.length; i++) {
-        let courseId = courseIdArray[i];
-        if (i == 0) {
-          courseId_text = `${courseId_text}'${courseId}'`;
-        } else {
-          courseId_text = `${courseId_text},'${courseId}'`;
+      let hasCourseId = courseIdArray && courseIdArray.length > 0;
+      if (hasCourseId) {
+        for (let i = 0; i < courseIdArray.length; i++) {
+          let courseId = courseIdArray[i];
+          if (i == 0) {
+            courseId_text = `${courseId_text}'${courseId}'`;
+          } else {
+            courseId_text = `${courseId_text},'${courseId}'`;
+          }
         }
       }
-      //unitId
+      
+      //unitId - optional
       let unitIdArray = searchFilter?.unitId;
       let unitId_text = '';
-      for (let i = 0; i < unitIdArray.length; i++) {
-        let unitId = unitIdArray[i];
-        if (i == 0) {
-          unitId_text = `${unitId_text}'${unitId}'`;
-        } else {
-          unitId_text = `${unitId_text},'${unitId}'`;
+      let hasUnitId = unitIdArray && unitIdArray.length > 0;
+      if (hasUnitId) {
+        for (let i = 0; i < unitIdArray.length; i++) {
+          let unitId = unitIdArray[i];
+          if (i == 0) {
+            unitId_text = `${unitId_text}'${unitId}'`;
+          } else {
+            unitId_text = `${unitId_text},'${unitId}'`;
+          }
         }
       }
+      
       let userIdArray = searchFilter?.userId;
       for (let i = 0; i < userIdArray.length; i++) {
         let userId = userIdArray[i];
+        
+        // Build dynamic WHERE clause
+        let whereConditions = `"evaluatedBy" IS DISTINCT FROM 'AI' AND "userId" = $1`;
+        if (hasCourseId) {
+          whereConditions += ` AND "courseId" IN (${courseId_text})`;
+        }
+        if (hasUnitId) {
+          whereConditions += ` AND "unitId" IN (${unitId_text})`;
+        }
+        whereConditions += ` AND "contentId" IN (${contentId_text}) AND "tenantId" = $2`;
+        
         const result = await this.dataSource.query(
           `WITH latest_assessment AS (
               SELECT 
@@ -698,16 +718,12 @@ export class TrackingAssessmentService {
                   "timeSpent",
                   "unitId",
                   "tenantId",
+                  "evaluatedBy",
                   ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY CAST("totalScore" AS INTEGER) DESC) as row_num
               FROM 
                   assessment_tracking
               WHERE 
-              "evaluatedBy" IS DISTINCT FROM 'AI' AND
-              "userId" = $1 
-                  AND "courseId" IN (${courseId_text}) 
-                  AND "unitId" IN (${unitId_text}) 
-                  AND "contentId" IN (${contentId_text}) 
-                  AND "tenantId" = $2
+                  ${whereConditions}
           )
           SELECT 
               "assessmentTrackingId",
@@ -722,7 +738,8 @@ export class TrackingAssessmentService {
               "updatedOn",
               "timeSpent",
               "unitId",
-              "tenantId"
+              "tenantId",
+              "evaluatedBy"
           FROM 
               latest_assessment
           WHERE 

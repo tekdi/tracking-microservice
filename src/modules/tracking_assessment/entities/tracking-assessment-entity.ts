@@ -63,7 +63,11 @@ export class AssessmentTracking {
   showFlag: boolean;
 
   @IsOptional()
-  @Column()
+  @Column({
+    type: 'enum',
+    enum: EvaluationType,
+    nullable: true,
+  })
   @IsEnum(EvaluationType, {
     message: 'evaluatedBy must be one of: AI, Online, Manual',
   })
