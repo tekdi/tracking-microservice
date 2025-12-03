@@ -682,12 +682,99 @@ export class TrackingAssessmentService {
     }
   }
 
+  private toDateString(date: Date): string {
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  private addDaysToDateString(dateStr: string, days: number): string {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() + days);
+    return this.toDateString(date);
+  }
+
+  private getSpacedRepetitionGaps(): number[] {
+    const defaultGaps = [1, 2, 4]; // Day 1, Day 3, Day 7
+    
+    const gapsEnv = this.configService.get<string>('SPACED_REPETITION_GAPS');
+    if (gapsEnv) {
+      const gaps = gapsEnv.split(',').map(g => parseInt(g.trim(), 10)).filter(g => !isNaN(g) && g > 0);
+      if (gaps.length > 0) {
+        return gaps;
+      }
+    }
+    
+    return defaultGaps;
+  }
+
+  private calculateSpacedRepetitionColor(attemptDates: Date[]): 'green' | 'orange' | 'red' | 'white' {
+    if (attemptDates.length === 0) {
+      return 'white'; // No attempts yet
+    }
+
+    // Get unique dates only (YYYY-MM-DD format), sorted oldest first
+    const uniqueDateStrings = [...new Set(attemptDates.map(d => this.toDateString(d)))].sort();
+    
+    if (uniqueDateStrings.length === 0) {
+      return 'white';
+    }
+
+    const today = this.toDateString(new Date());
+    
+    // Get configurable revision gaps
+    const revisionGaps = this.getSpacedRepetitionGaps();
+    console.log(uniqueDateStrings);
+
+    let lastAttemptDate = uniqueDateStrings[0]; // Start with first attempt
+    let currentCycle = 0;
+    let attemptIdx = 0;
+
+    // Process through cycles
+    while (currentCycle < revisionGaps.length) {
+      const gap = revisionGaps[currentCycle];
+      const dueDate = this.addDaysToDateString(lastAttemptDate, gap);
+
+      // Find next attempt after lastAttemptDate
+      let foundNextAttempt = false;
+      for (let i = attemptIdx + 1; i < uniqueDateStrings.length; i++) {
+        const nextAttempt = uniqueDateStrings[i];
+        if (nextAttempt > lastAttemptDate) {
+          attemptIdx = i;
+          
+          if (nextAttempt >= dueDate) {
+            lastAttemptDate = nextAttempt;
+            currentCycle++;
+          } else {
+            lastAttemptDate = nextAttempt;
+          }
+          foundNextAttempt = true;
+          break;
+        }
+      }
+
+      if (!foundNextAttempt) {
+        // No more attempts - check current due date against today
+        if (today < dueDate) {
+          return 'green'; // Before due date
+        } else if (today === dueDate) {
+          return 'orange'; // On due date
+        } else {
+          return 'red'; // Past due date
+        }
+      }
+    }
+
+    // All cycles completed (Day 7 done) - stay Green forever
+    return 'green';
+  }
+
   public async gethighestandlatestscore(params, response, searchFilter?: any) {
     try {
       const MAX_LEVELS = 10;
       
-      // Get highest and recent scores
-      const [highestRecords, recentRecords] = await Promise.all([
+      // Get highest and recent scores, and all attempts for spaced repetition
+      const [highestRecords, recentRecords, allAttempts] = await Promise.all([
         this.dataSource.query(
           `SELECT DISTINCT ON ("contentId") "contentId", "totalScore", "totalMaxScore", "createdOn", "attemptId"
            FROM assessment_tracking
@@ -701,8 +788,33 @@ export class TrackingAssessmentService {
            WHERE "userId" = $1 AND "courseId" = $2 AND "unitId" = $3
            ORDER BY "contentId", "createdOn" DESC`,
           params
+        ),
+        // Get all attempts for spaced repetition color calculation
+        // Only include attempts with >= 80% score (pass)
+        this.dataSource.query(
+          `SELECT "contentId", DATE("createdOn") as attempt_date
+           FROM assessment_tracking
+           WHERE "userId" = $1 AND "courseId" = $2 AND "unitId" = $3
+             AND "totalMaxScore" > 0
+             AND (
+               CASE 
+                 WHEN "totalScore" <= "totalMaxScore" THEN "totalScore" / "totalMaxScore"
+                 ELSE "totalMaxScore" / "totalScore"
+               END
+             ) >= 0.8
+           ORDER BY "contentId", "createdOn" ASC`,
+          params
         )
       ]);
+
+      // Group attempts by contentId for spaced repetition calculation
+      const attemptsByContentId: Record<string, Date[]> = {};
+      allAttempts.forEach((attempt: any) => {
+        if (!attemptsByContentId[attempt.contentId]) {
+          attemptsByContentId[attempt.contentId] = [];
+        }
+        attemptsByContentId[attempt.contentId].push(new Date(attempt.attempt_date));
+      });
 
       // Initialize all levels
       const levelMap: Record<string, any> = {};
@@ -711,7 +823,7 @@ export class TrackingAssessmentService {
           levelNumber: i,
           highest: null,
           recent: null,
-          metadata: { scorePercentage: 0, isCompleted: false, isUnlocked: i === 1 }
+          metadata: { scorePercentage: 0, isCompleted: false, isUnlocked: i === 1, color: 'white' }
         };
       }
 
@@ -739,6 +851,16 @@ export class TrackingAssessmentService {
             totalMaxScore: rec.totalMaxScore, 
             createdOn: rec.createdOn 
           };
+        }
+      });
+
+      // Calculate spaced repetition color for each level
+      Object.keys(attemptsByContentId).forEach(contentId => {
+        console.log(contentId);
+        if (levelMap[contentId]) {
+          const attemptDates = attemptsByContentId[contentId];
+          const color = this.calculateSpacedRepetitionColor(attemptDates);
+          levelMap[contentId].metadata.color = color;
         }
       });
 
