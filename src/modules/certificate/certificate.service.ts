@@ -412,7 +412,53 @@ export class CertificateService {
           Accept: 'text/html',
         },
       });
-      response.data = response?.data?.replace('**Id**', credentialId);
+      let htmlContent = response?.data?.replace('**Id**', credentialId);
+
+      // Inject font support for Devanagari script (Marathi/Hindi) if not already present
+      if (!htmlContent.includes('fonts.googleapis.com') && !htmlContent.includes('@font-face')) {
+        const fontInjection = `
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+          <style>
+            * {
+              font-family: 'Noto Sans Devanagari', 'Noto Serif Devanagari', 'DejaVu Sans', 'Liberation Sans', Arial, sans-serif !important;
+            }
+          </style>
+        `;
+        
+        // Ensure charset is set first
+        if (!htmlContent.includes('charset')) {
+          if (htmlContent.includes('</head>')) {
+            htmlContent = htmlContent.replace('</head>', '<meta charset="UTF-8"></head>');
+          } else if (htmlContent.includes('<head>')) {
+            htmlContent = htmlContent.replace('<head>', '<head><meta charset="UTF-8">');
+          }
+        }
+        
+        // Inject fonts into head if head exists, otherwise wrap content
+        if (htmlContent.includes('</head>')) {
+          htmlContent = htmlContent.replace('</head>', `${fontInjection}</head>`);
+        } else if (htmlContent.includes('<head>')) {
+          htmlContent = htmlContent.replace('<head>', `<head>${fontInjection}`);
+        } else {
+          // If no head tag, wrap content and add head
+          if (!htmlContent.includes('<html>')) {
+            htmlContent = `<html><head><meta charset="UTF-8">${fontInjection}</head><body>${htmlContent}</body></html>`;
+          } else {
+            htmlContent = htmlContent.replace('<html>', `<html><head><meta charset="UTF-8">${fontInjection}</head>`);
+          }
+        }
+      } else {
+        // Ensure charset is set even if fonts are already present
+        if (!htmlContent.includes('charset')) {
+          if (htmlContent.includes('</head>')) {
+            htmlContent = htmlContent.replace('</head>', '<meta charset="UTF-8"></head>');
+          } else if (htmlContent.includes('<head>')) {
+            htmlContent = htmlContent.replace('<head>', '<head><meta charset="UTF-8">');
+          }
+        }
+      }
 
       // Launch Puppeteer
       const browser = await puppeteer.launch({
@@ -423,18 +469,28 @@ export class CertificateService {
           '--disable-gpu',
           '--disable-dev-shm-usage',
           '--disable-software-rasterizer',
+          '--font-render-hinting=none',
         ],
       });
 
       const page = await browser.newPage();
 
-      // Set HTML content
-      await page.setContent(response.data, { waitUntil: 'load' });
+      // Set viewport for better rendering
+      await page.setViewport({ width: 1200, height: 1600 });
+
+      // Set HTML content and wait for fonts to load
+      await page.setContent(htmlContent, { 
+        waitUntil: 'networkidle0', // Wait for all network requests to finish (including fonts)
+      });
+
+      // Additional wait to ensure fonts are fully loaded
+      await page.evaluateHandle(() => document.fonts.ready);
 
       // Generate PDF
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
+        preferCSSPageSize: false,
         margin: {
           top: '10mm',
           bottom: '10mm',
@@ -445,23 +501,12 @@ export class CertificateService {
 
       await browser.close();
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename="generated.pdf"',
-      );
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.end(pdfBuffer);
+      // Return StreamableFile instead of calling res.end()
+      return new StreamableFile(pdfBuffer);
     } catch (error) {
       console.log('error: ', error);
-      this.loggerService.error('Error fetching credentials:', error);
-      return APIResponse.error(
-        res,
-        apiId,
-        'Error fetching credentials',
-        'INTERNAL_SERVER_ERROR',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.loggerService.error('Error generating PDF:', error);
+      throw error;
     }
   }
 }
