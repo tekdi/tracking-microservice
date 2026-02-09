@@ -104,12 +104,21 @@ export class CertificateController {
   @Post('render-PDF')
   async renderCertificatePDFFromHTML(
     @Body() renderCertificateDto: RenderCertificateDTO,
-    @Res({ passthrough: true }) response,
-  ): Promise<string | StreamableFile> {
-    return await this.certificateService.renderPDFFromHTML(
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const streamableFile = await this.certificateService.renderPDFFromHTML(
       renderCertificateDto.credentialId,
       renderCertificateDto.templateId,
       response,
     );
+    
+    // Set proper headers for PDF download
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="certificate-${renderCertificateDto.credentialId}.pdf"`,
+    );
+    
+    return streamableFile;
   }
 }
