@@ -6,8 +6,15 @@ import {
   IsUUID,
   IsArray,
   IsOptional,
+  IsEnum,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export enum EvaluationType {
+  AI = 'AI',
+  ONLINE = 'Online',
+  MANUAL = 'Manual',
+}
 
 export class CreateAssessmentTrackingDto {
   @Expose()
@@ -114,8 +121,14 @@ export class CreateAssessmentTrackingDto {
   @IsOptional()
   submitedBy: string;
 
-  @IsString()
+  @ApiPropertyOptional({
+    enum: EvaluationType,
+    description: 'Evaluation type: AI, Online, or Manual',
+  })
   @IsOptional()
+  @IsEnum(EvaluationType, {
+    message: 'evaluatedBy must be one of: AI, Online, Manual',
+  })
   evaluatedBy?: EvaluationType;
 
   constructor(obj?: Partial<CreateAssessmentTrackingDto>) {
@@ -123,9 +136,4 @@ export class CreateAssessmentTrackingDto {
       Object.assign(this, obj);
     }
   }
-}
-export enum EvaluationType {
-  AI = 'AI',
-  ONLINE = 'Online',
-  MANUAL = 'Manual',
 }
