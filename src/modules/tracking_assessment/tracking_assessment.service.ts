@@ -646,6 +646,9 @@ export class TrackingAssessmentService {
         });
       }
 
+      //for courseId, unitId, contentId
+      if(searchFilter?.courseId && searchFilter?.unitId && searchFilter?.contentId) 
+      {
       let output_result = [];
       let contentIdArray = searchFilter?.contentId;
       let contentId_text = '';
@@ -772,6 +775,57 @@ export class TrackingAssessmentService {
         message: 'success',
         data: output_result,
       });
+      }
+      else{
+        let output_result = [];
+        let userIdArray = searchFilter?.userId;
+        for (let i = 0; i < userIdArray.length; i++) {
+          let userId = userIdArray[i];
+          const result = await this.dataSource.query(
+            `SELECT 
+                "assessmentTrackingId",
+                "userId",
+                "courseId",
+                "contentId",
+                "attemptId",
+                "createdOn",
+                "lastAttemptedOn",
+                "totalMaxScore",
+                "totalScore",
+                "updatedOn",
+                "timeSpent",
+                "unitId",
+                "tenantId"
+            FROM 
+                assessment_tracking
+            WHERE 
+                "evaluatedBy" IS DISTINCT FROM 'AI' AND
+                "userId" = $1 
+                AND "tenantId" = $2;`,
+            [userId, tenantId],
+          );
+          for (let j = 0; j < result.length; j++) {
+            let temp_result = result[j];
+            let maxMark = temp_result?.totalMaxScore;
+            let scoreMark = temp_result?.totalScore;
+            let percentage = (scoreMark / maxMark) * 100;
+            const roundedPercentage = parseFloat(percentage.toFixed(2)); // Rounds to 2 decimal places
+            temp_result.percentage = roundedPercentage;
+            result[j] = temp_result;
+          }
+          let temp_obj = {
+            userId: userId,
+            assessments: result,
+          };
+          output_result.push(temp_obj);
+        }
+        //get all assesments from userid
+        return response.status(200).send({
+          success: true,
+          message: 'success',
+          data: output_result,
+        });
+      }
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
       this.loggerService.error(
