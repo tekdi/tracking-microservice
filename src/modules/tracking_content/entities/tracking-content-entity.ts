@@ -49,5 +49,5 @@ export class ContentTracking {
     type: 'double precision',
     nullable: true,
   })
-  resumeData: number;
+  resumeData: string;
 }
