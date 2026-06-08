@@ -240,6 +240,25 @@ export class TrackingContentService {
       if (result_content.length > 0) {
         contentTrackingId = result_content[0]?.contentTrackingId;
         //update resumeData
+        try{
+          let temp_contentType=createContentTrackingDto.contentType;
+          if(temp_contentType.includes("|")){
+            const parts = temp_contentType.split('|');
+            createContentTrackingDto.contentType=parts[0];
+            if(parts.length>1)
+            {
+              createContentTrackingDto.resumeData=parts[1];
+            }
+            else{
+              createContentTrackingDto.resumeData="0";
+            }
+          }
+          else{
+            createContentTrackingDto.resumeData="0";
+          }
+        }
+        catch(e){
+        }
         let temp_resumeData=createContentTrackingDto.resumeData ? createContentTrackingDto.resumeData : 0;
         await this.dataSource.query(
           `UPDATE content_tracking set "resumeData"=$2 WHERE "contentTrackingId"=$1`,

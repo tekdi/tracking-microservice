@@ -90,14 +90,14 @@ export class CreateContentTrackingDto {
   tenantId?: string;
 
   @ApiPropertyOptional({
-    type: Number,
+    type: String,
     description: 'Resume Data',
     example: 325.45,
   })
   @Expose()
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  resumeData?: number;
+  resumeData?: string;
 
   constructor(obj?: Partial<CreateContentTrackingDto>) {
     if (obj) {
