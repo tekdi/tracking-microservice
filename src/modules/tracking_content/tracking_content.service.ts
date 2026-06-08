@@ -239,6 +239,15 @@ export class TrackingContentService {
       let contentTrackingId = '';
       if (result_content.length > 0) {
         contentTrackingId = result_content[0]?.contentTrackingId;
+        //update resumeData
+        let temp_resumeData=createContentTrackingDto.resumeData ? createContentTrackingDto.resumeData : 0;
+        await this.dataSource.query(
+          `UPDATE content_tracking set "resumeData"=$2 WHERE "contentTrackingId"=$1`,
+          [
+            contentTrackingId,
+            temp_resumeData
+          ],
+        );
       } else {
         const result = await this.contentTrackingRepository.save(
           createContentTrackingDto,
