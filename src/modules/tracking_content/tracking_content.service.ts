@@ -181,6 +181,7 @@ export class TrackingContentService {
         'detailsObject',
         'unitId',
         'tenantId',
+        'resumeData'
       ];
       const errors = await this.validateCreateDTO(
         allowedKeys,
@@ -335,7 +336,7 @@ export class TrackingContentService {
 
       let output_result = [];
       const result = await this.dataSource.query(
-        `SELECT "contentTrackingId","userId","courseId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn","unitId","tenantId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
+        `SELECT "contentTrackingId","userId","courseId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn","unitId","tenantId","resumeData" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
         [
           searchFilter?.userId,
           searchFilter?.contentId,
@@ -445,6 +446,7 @@ export class TrackingContentService {
                   "updatedOn",
                   "unitId",
                   "tenantId",
+                  "resumeData",
                   ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
               FROM 
                   content_tracking
@@ -581,6 +583,7 @@ export class TrackingContentService {
             ct."contentId",
             ct."contentTrackingId",
             ct."createdOn",
+            ct."resumeData",
             -- Determine status based on eid events
             -- END event = Completed, START event = In_Progress, neither = Not_Started
             CASE 
@@ -728,7 +731,7 @@ export class TrackingContentService {
         for (let jj = 0; jj < unitIdArray.length; jj++) {
           let unitId = unitIdArray[jj];
           const result = await this.dataSource.query(
-            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId","tenantId" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "unitId"=$3 and "tenantId"=$4 order by "createdOn" asc;`,
+            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId","tenantId","resumeData" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "unitId"=$3 and "tenantId"=$4 order by "createdOn" asc;`,
             [userId, courseId, unitId, tenantId],
           );
           let in_progress = 0;

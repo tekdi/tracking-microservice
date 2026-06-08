@@ -44,4 +44,10 @@ export class ContentTracking {
   @IsOptional()
   @IsUUID()
   tenantId: string;
+
+  @Column({
+    type: 'double precision',
+    nullable: true,
+  })
+  resumeData: number;
 }
