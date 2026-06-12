@@ -219,7 +219,7 @@ export class TrackingContentService {
       }
 
       //get detailsObject for extract details
-      const detailsObject = createContentTrackingDto.detailsObject;
+      const detailsObject : any = createContentTrackingDto.detailsObject;
       delete createContentTrackingDto.detailsObject;
 
       // Add tenantId to the DTO (validated by TenantGuard)
@@ -239,39 +239,37 @@ export class TrackingContentService {
       let contentTrackingId = '';
       if (result_content.length > 0) {
         contentTrackingId = result_content[0]?.contentTrackingId;
-        //update resumeData
-        try{
-          let temp_contentType=createContentTrackingDto.contentType;
-          if(temp_contentType.includes("|")){
-            const parts = temp_contentType.split('|');
-            createContentTrackingDto.contentType=parts[0];
-            if(parts.length>1)
-            {
-              createContentTrackingDto.resumeData=parts[1];
-            }
-            else{
-              createContentTrackingDto.resumeData="0";
-            }
-          }
-          else{
-            createContentTrackingDto.resumeData="0";
-          }
-        }
-        catch(e){
-        }
-        let temp_resumeData=createContentTrackingDto.resumeData ? createContentTrackingDto.resumeData : 0;
-        await this.dataSource.query(
-          `UPDATE content_tracking set "resumeData"=$2 WHERE "contentTrackingId"=$1`,
-          [
-            contentTrackingId,
-            temp_resumeData
-          ],
-        );
       } else {
         const result = await this.contentTrackingRepository.save(
           createContentTrackingDto,
         );
         contentTrackingId = result.contentTrackingId;
+      }
+      if(detailsObject){
+        const progressItem = detailsObject.find(item => item.eid == "PROGRESS");
+        if (progressItem) {
+          // Execute your condition here
+          // console.log("PROGRESS event found", progressItem);
+          //update resumeData if eid progress
+          try{
+            if(progressItem?.edata?.resumeData){
+              createContentTrackingDto.resumeData=progressItem?.edata?.resumeData;
+            }
+            else{
+              createContentTrackingDto.resumeData="0";
+            }
+          }
+          catch(e){
+          }
+          let temp_resumeData=createContentTrackingDto.resumeData ? createContentTrackingDto.resumeData : 0;
+          await this.dataSource.query(
+            `UPDATE content_tracking set "resumeData"=$2 WHERE "contentTrackingId"=$1`,
+            [
+              contentTrackingId,
+              temp_resumeData
+            ],
+          );
+        }
       }
 
       //save content details
@@ -284,7 +282,7 @@ export class TrackingContentService {
           let detail: any = details[i];
           let eid = detail?.eid;
           let edata = detail?.edata;
-          if (eid && edata) {
+          if (eid && edata && eid!='PROGRESS') {
             detailsObj.push({
               contentTrackingId: testId,
               userId: createContentTrackingDto.userId,
