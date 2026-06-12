@@ -37,6 +37,7 @@
     "puppeteer": "^24.4.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
+    "typeorm": "^0.3.20",
     "winston": "^3.13.0"
   },
   "devDependencies": {
