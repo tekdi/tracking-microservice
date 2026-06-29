@@ -89,6 +89,16 @@ export class CreateContentTrackingDto {
   @IsOptional()
   tenantId?: string;
 
+  @ApiPropertyOptional({
+    type: String,
+    description: 'Resume Data',
+    example: 325.45,
+  })
+  @Expose()
+  @IsString()
+  @IsOptional()
+  resumeData?: string;
+
   constructor(obj?: Partial<CreateContentTrackingDto>) {
     if (obj) {
       Object.assign(this, obj);
