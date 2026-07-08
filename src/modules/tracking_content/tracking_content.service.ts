@@ -564,7 +564,11 @@ export class TrackingContentService {
   ) {
     try {
       // Extract tenantId from request headers
-      const tenantId = request.headers.tenantId || request.headers.tenantid || null;
+      const tenantId =
+        request.headers.tenantId ||
+        request.headers.tenantid ||
+        request.headers['x-tenant-id'] ||
+        null;
       if (!tenantId) {
         this.loggerService.error(
           'tenantId is required in the header',
@@ -581,6 +585,7 @@ export class TrackingContentService {
       //courseId
       let courseIdArray = searchFilter?.courseId;
       let userIdArray = searchFilter?.userId;
+      let type = searchFilter?.type;
 
       // Validate input
       if (!courseIdArray || !Array.isArray(courseIdArray) || courseIdArray.length === 0) {
@@ -599,117 +604,177 @@ export class TrackingContentService {
         });
       }
 
-      // OPTIMIZED: Single query using JOINs, WHERE IN, and aggregation
-      // This replaces nested loops with hundreds of individual queries
-      const query = `
-        WITH content_status AS (
-          SELECT 
-            ct."userId",
-            ct."courseId",
-            ct."contentId",
-            ct."contentTrackingId",
-            ct."createdOn",
-            ct."resumeData",
-            -- Determine status based on eid events
-            -- END event = Completed, START event = In_Progress, neither = Not_Started
-            CASE 
-              WHEN MAX(CASE WHEN ctd.eid = 'END' THEN 1 ELSE 0 END) = 1 THEN 'Completed'
-              WHEN MAX(CASE WHEN ctd.eid = 'START' THEN 1 ELSE 0 END) = 1 THEN 'In_Progress'
-              ELSE 'Not_Started'
-            END as status
-          FROM content_tracking ct
-          LEFT JOIN content_tracking_details ctd ON ct."contentTrackingId" = ctd."contentTrackingId"
-          WHERE 
-            ct."userId" = ANY($1::uuid[])
-            AND ct."courseId" = ANY($2)
-            AND ct."tenantId" = $3
-          GROUP BY 
-            ct."userId", 
-            ct."courseId", 
-            ct."contentId", 
-            ct."contentTrackingId",
-            ct."createdOn"
-        ),
-        course_summary AS (
+      if(type && type=='dashboard')
+      {
+        const certificateQuery = `
+          SELECT "userId", "courseId", status
+          FROM user_course_certificate
+          WHERE "courseId" = ANY($1) AND "userId" = ANY($2::uuid[]) AND "tenantId" = $3
+        `;
+
+        const attemptQuery = `
+          SELECT "userId", "courseId", COUNT("assessmentTrackingId") as attempt_count
+          FROM assessment_tracking
+          WHERE "courseId" = ANY($1) AND "userId" = ANY($2::uuid[]) AND "tenantId" = $3
+          GROUP BY "userId", "courseId"
+        `;
+
+        const [certificateResults, attemptResults] = await Promise.all([
+          this.dataSource.query(certificateQuery, [courseIdArray, userIdArray, tenantId]),
+          this.dataSource.query(attemptQuery, [courseIdArray, userIdArray, tenantId]),
+        ]);
+
+        const statusMap = new Map<string, string>();
+        for (const row of certificateResults) {
+          statusMap.set(`${row.courseId}_${row.userId}`, row.status);
+        }
+
+        const attemptMap = new Map<string, number>();
+        for (const row of attemptResults) {
+          attemptMap.set(`${row.courseId}_${row.userId}`, parseInt(row.attempt_count) || 0);
+        }
+
+        const data = courseIdArray.map((courseId) => {
+          const userStatusMap: Record<string, { status: string; highestAttempt: number }> = {};
+
+          for (const userId of userIdArray) {
+            const key = `${courseId}_${userId}`;
+            const rawStatus = statusMap.get(key);
+            const status =
+              !rawStatus || rawStatus.toLowerCase() === 'enrolled'
+                ? 'not_started'
+                : rawStatus;
+
+            userStatusMap[userId] = {
+              status,
+              highestAttempt: attemptMap.get(key) || 0,
+            };
+          }
+
+          return { [courseId]: userStatusMap };
+        });
+
+        this.loggerService.log('success', 'searchStatusCourseTracking');
+        return response.status(200).send({
+          success: true,
+          message: 'success',
+          data,
+        });
+      }
+      else
+      {
+        // OPTIMIZED: Single query using JOINs, WHERE IN, and aggregation
+        // This replaces nested loops with hundreds of individual queries
+        const query = `
+          WITH content_status AS (
+            SELECT 
+              ct."userId",
+              ct."courseId",
+              ct."contentId",
+              ct."contentTrackingId",
+              ct."createdOn",
+              ct."resumeData",
+              -- Determine status based on eid events
+              -- END event = Completed, START event = In_Progress, neither = Not_Started
+              CASE 
+                WHEN MAX(CASE WHEN ctd.eid = 'END' THEN 1 ELSE 0 END) = 1 THEN 'Completed'
+                WHEN MAX(CASE WHEN ctd.eid = 'START' THEN 1 ELSE 0 END) = 1 THEN 'In_Progress'
+                ELSE 'Not_Started'
+              END as status
+            FROM content_tracking ct
+            LEFT JOIN content_tracking_details ctd ON ct."contentTrackingId" = ctd."contentTrackingId"
+            WHERE 
+              ct."userId" = ANY($1::uuid[])
+              AND ct."courseId" = ANY($2)
+              AND ct."tenantId" = $3
+            GROUP BY 
+              ct."userId", 
+              ct."courseId", 
+              ct."contentId", 
+              ct."contentTrackingId",
+              ct."createdOn"
+          ),
+          course_summary AS (
+            SELECT 
+              "userId",
+              "courseId",
+              COUNT(*) FILTER (WHERE status = 'In_Progress') as in_progress,
+              COUNT(*) FILTER (WHERE status = 'Completed') as completed,
+              MIN("createdOn") as started_on,
+              array_agg("contentId") FILTER (WHERE status = 'In_Progress') as in_progress_list,
+              array_agg("contentId") FILTER (WHERE status = 'Completed') as completed_list
+            FROM content_status
+            GROUP BY "userId", "courseId"
+          )
           SELECT 
             "userId",
             "courseId",
-            COUNT(*) FILTER (WHERE status = 'In_Progress') as in_progress,
-            COUNT(*) FILTER (WHERE status = 'Completed') as completed,
-            MIN("createdOn") as started_on,
-            array_agg("contentId") FILTER (WHERE status = 'In_Progress') as in_progress_list,
-            array_agg("contentId") FILTER (WHERE status = 'Completed') as completed_list
-          FROM content_status
-          GROUP BY "userId", "courseId"
-        )
-        SELECT 
-          "userId",
-          "courseId",
-          COALESCE(in_progress, 0) as in_progress,
-          COALESCE(completed, 0) as completed,
-          started_on,
-          COALESCE(in_progress_list, ARRAY[]::text[]) as in_progress_list,
-          COALESCE(completed_list, ARRAY[]::text[]) as completed_list
-        FROM course_summary
-        ORDER BY "userId", "courseId";
-      `;
+            COALESCE(in_progress, 0) as in_progress,
+            COALESCE(completed, 0) as completed,
+            started_on,
+            COALESCE(in_progress_list, ARRAY[]::text[]) as in_progress_list,
+            COALESCE(completed_list, ARRAY[]::text[]) as completed_list
+          FROM course_summary
+          ORDER BY "userId", "courseId";
+        `;
 
-      const results = await this.dataSource.query(query, [
-        userIdArray,
-        courseIdArray,
-        tenantId,
-      ]);
+        const results = await this.dataSource.query(query, [
+          userIdArray,
+          courseIdArray,
+          tenantId,
+        ]);
 
-      // Transform results into the expected format
-      const userMap = new Map<string, any>();
+        // Transform results into the expected format
+        const userMap = new Map<string, any>();
 
-      for (const row of results) {
-        const userId = row.userId;
-        const courseId = row.courseId;
+        for (const row of results) {
+          const userId = row.userId;
+          const courseId = row.courseId;
 
-        if (!userMap.has(userId)) {
-          userMap.set(userId, {
-            userId: userId,
-            course: [],
+          if (!userMap.has(userId)) {
+            userMap.set(userId, {
+              userId: userId,
+              course: [],
+            });
+          }
+
+          userMap.get(userId).course.push({
+            courseId: courseId,
+            in_progress: parseInt(row.in_progress) || 0,
+            completed: parseInt(row.completed) || 0,
+            started_on: row.started_on,
+            in_progress_list: row.in_progress_list || [],
+            completed_list: row.completed_list || [],
           });
         }
 
-        userMap.get(userId).course.push({
-          courseId: courseId,
-          in_progress: parseInt(row.in_progress) || 0,
-          completed: parseInt(row.completed) || 0,
-          started_on: row.started_on,
-          in_progress_list: row.in_progress_list || [],
-          completed_list: row.completed_list || [],
+        // Ensure all requested users are in the response, even with no data
+        const userList = userIdArray.map((userId) => {
+          if (userMap.has(userId)) {
+            return userMap.get(userId);
+          } else {
+            // User has no tracking data, return empty course list
+            return {
+              userId: userId,
+              course: courseIdArray.map((courseId) => ({
+                courseId: courseId,
+                in_progress: 0,
+                completed: 0,
+                started_on: null,
+                in_progress_list: [],
+                completed_list: [],
+              })),
+            };
+          }
+        });
+
+        this.loggerService.log('success', 'searchStatusCourseTracking');
+        return response.status(200).send({
+          success: true,
+          message: 'success',
+          data: userList,
         });
       }
-
-      // Ensure all requested users are in the response, even with no data
-      const userList = userIdArray.map((userId) => {
-        if (userMap.has(userId)) {
-          return userMap.get(userId);
-        } else {
-          // User has no tracking data, return empty course list
-          return {
-            userId: userId,
-            course: courseIdArray.map((courseId) => ({
-              courseId: courseId,
-              in_progress: 0,
-              completed: 0,
-              started_on: null,
-              in_progress_list: [],
-              completed_list: [],
-            })),
-          };
-        }
-      });
-
-      this.loggerService.log('success', 'searchStatusCourseTracking');
-      return response.status(200).send({
-        success: true,
-        message: 'success',
-        data: userList,
-      });
     } catch (e) {
       const errorMessage = e.message || 'Internal Server Error';
       this.loggerService.error(
