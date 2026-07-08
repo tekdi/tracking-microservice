@@ -564,11 +564,7 @@ export class TrackingContentService {
   ) {
     try {
       // Extract tenantId from request headers
-      const tenantId =
-        request.headers.tenantId ||
-        request.headers.tenantid ||
-        request.headers['x-tenant-id'] ||
-        null;
+      const tenantId = request.headers.tenantId || request.headers.tenantid || null;
       if (!tenantId) {
         this.loggerService.error(
           'tenantId is required in the header',
