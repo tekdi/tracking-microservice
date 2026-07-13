@@ -603,7 +603,7 @@ export class TrackingContentService {
       if(type && type=='dashboard')
       {
         const certificateQuery = `
-          SELECT "userId", "courseId", status
+          SELECT "userId", "courseId", status, "issuedOn", "createdOn", "updatedOn"
           FROM user_course_certificate
           WHERE "courseId" = ANY($1) AND "userId" = ANY($2::uuid[]) AND "tenantId" = $3
         `;
@@ -620,9 +620,17 @@ export class TrackingContentService {
           this.dataSource.query(attemptQuery, [courseIdArray, userIdArray, tenantId]),
         ]);
 
-        const statusMap = new Map<string, string>();
+        const statusMap = new Map<
+          string,
+          { status: string; issuedOn: Date | null; createdOn: Date | null; updatedOn: Date | null }
+        >();
         for (const row of certificateResults) {
-          statusMap.set(`${row.courseId}_${row.userId}`, row.status);
+          statusMap.set(`${row.courseId}_${row.userId}`, {
+            status: row.status,
+            issuedOn: row.issuedOn,
+            createdOn: row.createdOn,
+            updatedOn: row.updatedOn,
+          });
         }
 
         const attemptMap = new Map<string, number>();
@@ -631,11 +639,21 @@ export class TrackingContentService {
         }
 
         const data = courseIdArray.map((courseId) => {
-          const userStatusMap: Record<string, { status: string; highestAttempt: number }> = {};
+          const userStatusMap: Record<
+            string,
+            {
+              status: string;
+              highestAttempt: number;
+              issuedOn: Date | null;
+              createdOn: Date | null;
+              updatedOn: Date | null;
+            }
+          > = {};
 
           for (const userId of userIdArray) {
             const key = `${courseId}_${userId}`;
-            const rawStatus = statusMap.get(key);
+            const certificate = statusMap.get(key);
+            const rawStatus = certificate?.status;
             const status =
               !rawStatus || rawStatus.toLowerCase() === 'enrolled'
                 ? 'not_started'
@@ -644,6 +662,9 @@ export class TrackingContentService {
             userStatusMap[userId] = {
               status,
               highestAttempt: attemptMap.get(key) || 0,
+              issuedOn: certificate?.issuedOn ?? null,
+              createdOn: certificate?.createdOn ?? null,
+              updatedOn: certificate?.updatedOn ?? null,
             };
           }
 
