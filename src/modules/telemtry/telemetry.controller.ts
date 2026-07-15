@@ -6,6 +6,7 @@ import {
   ApiBadRequestResponse,
 } from '@nestjs/swagger';
 import { Telemetry } from './entities/telemetry';
+import { Request, Response } from 'express';
 
 @Controller('telemetry')
 export class TelemetryController {
@@ -20,10 +21,10 @@ export class TelemetryController {
     @Res() response: Response,
     @Req() request: Request,
   ) {
-    return this.telemetryService.addTelemetryLog(
-      createTelemetryDto,
-      response,
-      request,
-    );
+    // Telemetry ingestion is deprecated; endpoint kept for frontend compatibility.
+    // Always acknowledge success without touching the service/DB.
+    return response
+      .status(200)
+      .json({ message: 'Telemetry log created successfully' });
   }
 }
