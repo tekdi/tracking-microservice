@@ -8,7 +8,6 @@ import {
   Post,
   Body,
   Delete,
-  UseInterceptors,
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
@@ -26,7 +25,6 @@ import {
 import { CreateContentTrackingDto } from './dto/tracking-content-create-dto';
 import { SearchContentTrackingDto } from './dto/tracking-content-search-dto';
 import { TrackingContentService } from './tracking_content.service';
-import { CacheInterceptor } from '@nestjs/cache-manager';
 import { TenantGuard } from 'src/common/guards/tenant.guard';
 //import { AllExceptionsFilter } from 'src/common/utils/exception.filter';
 
@@ -45,7 +43,6 @@ export class TrackingContentController {
   @ApiNotFoundResponse({ description: 'Content Not Found' })
   @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
   @ApiBadRequestResponse({ description: 'Bad Request' })
-  @UseInterceptors(CacheInterceptor)
   public async getContentTrackingDetails(
     @Param('contentTrackingId') contentTrackingId: string,
     @Req() request: Request,

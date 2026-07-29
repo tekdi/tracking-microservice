@@ -13,12 +13,17 @@ import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
 import { SearchContentTrackingDto } from './dto/tracking-content-search-dto';
 import { IsUUID, isUUID } from 'class-validator';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
 import { KafkaService } from 'src/kafka/kafka.service';
+import { CacheService } from 'src/cache/cache.service';
+import { hashCacheParts } from 'src/cache/cache-key.util';
+
+const CONTENT_READ_TTL_SECONDS = 300;
+const CONTENT_STATUS_TTL_SECONDS = 60;
+const COURSE_STATUS_TTL_SECONDS = 60;
+const COURSE_IN_PROGRESS_TTL_SECONDS = 60;
 
 @Injectable()
 export class TrackingContentService {
@@ -29,7 +34,7 @@ export class TrackingContentService {
     @InjectRepository(ContentTrackingDetail)
     private contentTrackingDetailRepository: Repository<ContentTrackingDetail>,
     private configService: ConfigService,
-    @Inject(CACHE_MANAGER) private cacheService: Cache,
+    private cacheService: CacheService,
     private dataSource: DataSource,
     private loggerService: LoggerService,
     private readonly kafkaService: KafkaService,
@@ -78,24 +83,15 @@ export class TrackingContentService {
       );
     }
     try {
-      const ttl = this.ttl;
-      const cacheKey = `${contentTrackingId}_${tenantId}`;
-      const cachedData: any = await this.cacheService.get(cacheKey);
-      if (cachedData) {
-        this.loggerService.log(
-          'Content data fetch successfully.',
-          apiId,
-          contentTrackingId,
-        );
-        return APIResponse.success(
-          response,
-          apiId,
-          cachedData,
-          HttpStatus.OK,
-          'Content data fetch successfully.',
-        );
-      }
-      const result = await this.findContent(contentTrackingId, tenantId);
+      const result = await this.cacheService.getOrLoad({
+        namespace: `contentread:${contentTrackingId}`,
+        key: `core:${tenantId}`,
+        ttlSeconds: CONTENT_READ_TTL_SECONDS,
+        loader: async () => {
+          const found = await this.findContent(contentTrackingId, tenantId);
+          return found ? found : null;
+        },
+      });
       if (!result) {
         this.loggerService.error(
           'No data found.',
@@ -111,7 +107,6 @@ export class TrackingContentService {
           HttpStatus.NOT_FOUND,
         );
       }
-      await this.cacheService.set(cacheKey, result, ttl);
       this.loggerService.log(
         'Content data fetch successfully.',
         apiId,
@@ -312,6 +307,11 @@ export class TrackingContentService {
       }
       this.loggerService.log('Content submitted successfully.', apiId);
 
+      await this.cacheService.invalidate(
+        [`content:${tenantId}`, `course:${tenantId}`, 'courseinprogress'],
+        'createContentTracking',
+      );
+
       // Publish content tracking event to Kafka with only new details
       this.publishContentTrackingEvent('created', contentTrackingId, apiId, savedDetails, tenantId);
 
@@ -360,26 +360,39 @@ export class TrackingContentService {
         });
       }
 
-      let output_result = [];
-      const result = await this.dataSource.query(
-        `SELECT "contentTrackingId","userId","courseId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn","unitId","tenantId","resumeData" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
-        [
+      const output_result = await this.cacheService.getOrLoad({
+        namespace: `content:${tenantId}`,
+        key: `search:${hashCacheParts(
           searchFilter?.userId,
           searchFilter?.contentId,
           searchFilter?.courseId,
           searchFilter?.unitId,
-          tenantId,
-        ],
-      );
-      for (let i = 0; i < result.length; i++) {
-        const result_details = await this.dataSource.query(
-          `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
-          [result[i].contentTrackingId],
-        );
-        let temp_result = result[i];
-        temp_result.details = result_details;
-        output_result.push(temp_result);
-      }
+        )}`,
+        ttlSeconds: CONTENT_STATUS_TTL_SECONDS,
+        loader: async () => {
+          const result = await this.dataSource.query(
+            `SELECT "contentTrackingId","userId","courseId","contentId","contentType","contentMime","createdOn","lastAccessOn","updatedOn","unitId","tenantId","resumeData" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
+            [
+              searchFilter?.userId,
+              searchFilter?.contentId,
+              searchFilter?.courseId,
+              searchFilter?.unitId,
+              tenantId,
+            ],
+          );
+          const loaded = [];
+          for (let i = 0; i < result.length; i++) {
+            const result_details = await this.dataSource.query(
+              `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
+              [result[i].contentTrackingId],
+            );
+            let temp_result = result[i];
+            temp_result.details = result_details;
+            loaded.push(temp_result);
+          }
+          return loaded;
+        },
+      });
       this.loggerService.log('success', 'searchContentTracking');
       return response.status(200).send({
         success: true,
@@ -422,45 +435,79 @@ export class TrackingContentService {
         });
       }
 
-      let output_result = [];
       let contentIdArray = searchFilter?.contentId;
-      let contentId_text = '';
-      for (let i = 0; i < contentIdArray.length; i++) {
-        let contentId = contentIdArray[i];
-        if (i == 0) {
-          contentId_text = `${contentId_text}'${contentId}'`;
-        } else {
-          contentId_text = `${contentId_text},'${contentId}'`;
-        }
-      }
-      //courseId
       let courseIdArray = searchFilter?.courseId;
-      let courseId_text = '';
-      for (let i = 0; i < courseIdArray.length; i++) {
-        let courseId = courseIdArray[i];
-        if (i == 0) {
-          courseId_text = `${courseId_text}'${courseId}'`;
-        } else {
-          courseId_text = `${courseId_text},'${courseId}'`;
-        }
-      }
-      //unitId
       let unitIdArray = searchFilter?.unitId;
-      let unitId_text = '';
-      for (let i = 0; i < unitIdArray.length; i++) {
-        let unitId = unitIdArray[i];
-        if (i == 0) {
-          unitId_text = `${unitId_text}'${unitId}'`;
-        } else {
-          unitId_text = `${unitId_text},'${unitId}'`;
-        }
-      }
       let userIdArray = searchFilter?.userId;
-      for (let ii = 0; ii < userIdArray.length; ii++) {
-        let userId = userIdArray[ii];
-        const result = await this.dataSource.query(
-          `WITH latest_content AS (
-              SELECT 
+
+      const output_result = await this.cacheService.getOrLoad({
+        namespace: `content:${tenantId}`,
+        key: `status:${hashCacheParts(
+          userIdArray,
+          contentIdArray,
+          courseIdArray,
+          unitIdArray,
+        )}`,
+        ttlSeconds: CONTENT_STATUS_TTL_SECONDS,
+        loader: async () => {
+          let contentId_text = '';
+          for (let i = 0; i < contentIdArray.length; i++) {
+            let contentId = contentIdArray[i];
+            if (i == 0) {
+              contentId_text = `${contentId_text}'${contentId}'`;
+            } else {
+              contentId_text = `${contentId_text},'${contentId}'`;
+            }
+          }
+          //courseId
+          let courseId_text = '';
+          for (let i = 0; i < courseIdArray.length; i++) {
+            let courseId = courseIdArray[i];
+            if (i == 0) {
+              courseId_text = `${courseId_text}'${courseId}'`;
+            } else {
+              courseId_text = `${courseId_text},'${courseId}'`;
+            }
+          }
+          //unitId
+          let unitId_text = '';
+          for (let i = 0; i < unitIdArray.length; i++) {
+            let unitId = unitIdArray[i];
+            if (i == 0) {
+              unitId_text = `${unitId_text}'${unitId}'`;
+            } else {
+              unitId_text = `${unitId_text},'${unitId}'`;
+            }
+          }
+          const loaded = [];
+          for (let ii = 0; ii < userIdArray.length; ii++) {
+            let userId = userIdArray[ii];
+            const result = await this.dataSource.query(
+              `WITH latest_content AS (
+                  SELECT
+                      "contentTrackingId",
+                      "userId",
+                      "courseId",
+                      "contentId",
+                      "contentType",
+                      "contentMime",
+                      "createdOn",
+                      "lastAccessOn",
+                      "updatedOn",
+                      "unitId",
+                      "tenantId",
+                      "resumeData",
+                      ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
+                  FROM
+                      content_tracking
+                  WHERE
+                      "userId" = $1
+                      AND "courseId" IN (${courseId_text})
+                      AND "unitId" IN (${unitId_text})
+                      AND "contentId" IN (${contentId_text})
+                      AND "tenantId" = $2
+              )
+              SELECT
                   "contentTrackingId",
                   "userId",
                   "courseId",
@@ -471,70 +518,50 @@ export class TrackingContentService {
                   "lastAccessOn",
                   "updatedOn",
                   "unitId",
-                  "tenantId",
-                  "resumeData",
-                  ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY "createdOn" DESC) as row_num
-              FROM 
-                  content_tracking
-              WHERE 
-                  "userId" = $1 
-                  AND "courseId" IN (${courseId_text}) 
-                  AND "unitId" IN (${unitId_text}) 
-                  AND "contentId" IN (${contentId_text})
-                  AND "tenantId" = $2
-          )
-          SELECT 
-              "contentTrackingId",
-              "userId",
-              "courseId",
-              "contentId",
-              "contentType",
-              "contentMime",
-              "createdOn",
-              "lastAccessOn",
-              "updatedOn",
-              "unitId",
-              "tenantId"
-          FROM 
-              latest_content
-          WHERE 
-              row_num = 1;`,
-          [userId, tenantId],
-        );
-        //find out details
-        let output_result_details = [];
-        for (let i = 0; i < result.length; i++) {
-          const result_details = await this.dataSource.query(
-            `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
-            [result[i].contentTrackingId],
-          );
-          //find status
-          let percentage = 0;
-          let status = 'Not_Started';
-          for (let j = 0; j < result_details.length; j++) {
-            let temp_result_details = result_details[j];
-            if (temp_result_details?.eid == 'START') {
-              status = 'In_Progress';
-              percentage = temp_result_details?.progress;
+                  "tenantId"
+              FROM
+                  latest_content
+              WHERE
+                  row_num = 1;`,
+              [userId, tenantId],
+            );
+            //find out details
+            let output_result_details = [];
+            for (let i = 0; i < result.length; i++) {
+              const result_details = await this.dataSource.query(
+                `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
+                [result[i].contentTrackingId],
+              );
+              //find status
+              let percentage = 0;
+              let status = 'Not_Started';
+              for (let j = 0; j < result_details.length; j++) {
+                let temp_result_details = result_details[j];
+                if (temp_result_details?.eid == 'START') {
+                  status = 'In_Progress';
+                  percentage = temp_result_details?.progress;
+                }
+                if (temp_result_details?.eid == 'END') {
+                  status = 'Completed';
+                  percentage = temp_result_details?.progress;
+                  break;
+                }
+              }
+              let temp_result = result[i];
+              temp_result.percentage = percentage;
+              temp_result.status = status;
+              temp_result.details = result_details;
+              output_result_details.push(temp_result);
             }
-            if (temp_result_details?.eid == 'END') {
-              status = 'Completed';
-              percentage = temp_result_details?.progress;
-              break;
-            }
+            let temp_obj = {
+              userId: userId,
+              contents: output_result_details,
+            };
+            loaded.push(temp_obj);
           }
-          let temp_result = result[i];
-          temp_result.percentage = percentage;
-          temp_result.status = status;
-          temp_result.details = result_details;
-          output_result_details.push(temp_result);
-        }
-        let temp_obj = {
-          userId: userId,
-          contents: output_result_details,
-        };
-        output_result.push(temp_obj);
-      }
+          return loaded;
+        },
+      });
 
       this.loggerService.log('success', 'searchStatusContentTracking');
       return response.status(200).send({
@@ -602,73 +629,80 @@ export class TrackingContentService {
 
       if(type && type=='dashboard')
       {
-        const certificateQuery = `
-          SELECT "userId", "courseId", status, "issuedOn", "createdOn", "updatedOn"
-          FROM user_course_certificate
-          WHERE "courseId" = ANY($1) AND "userId" = ANY($2::uuid[]) AND "tenantId" = $3
-        `;
+        const data = await this.cacheService.getOrLoad({
+          namespace: `course:${tenantId}`,
+          key: `dashboard:${hashCacheParts(userIdArray, courseIdArray)}`,
+          ttlSeconds: COURSE_STATUS_TTL_SECONDS,
+          loader: async () => {
+            const certificateQuery = `
+              SELECT "userId", "courseId", status, "issuedOn", "createdOn", "updatedOn"
+              FROM user_course_certificate
+              WHERE "courseId" = ANY($1) AND "userId" = ANY($2::uuid[]) AND "tenantId" = $3
+            `;
 
-        const attemptQuery = `
-          SELECT "userId", "courseId", COUNT("assessmentTrackingId") as attempt_count
-          FROM assessment_tracking
-          WHERE "courseId" = ANY($1) AND "userId" = ANY($2::uuid[]) AND "tenantId" = $3
-          GROUP BY "userId", "courseId"
-        `;
+            const attemptQuery = `
+              SELECT "userId", "courseId", COUNT("assessmentTrackingId") as attempt_count
+              FROM assessment_tracking
+              WHERE "courseId" = ANY($1) AND "userId" = ANY($2::uuid[]) AND "tenantId" = $3
+              GROUP BY "userId", "courseId"
+            `;
 
-        const [certificateResults, attemptResults] = await Promise.all([
-          this.dataSource.query(certificateQuery, [courseIdArray, userIdArray, tenantId]),
-          this.dataSource.query(attemptQuery, [courseIdArray, userIdArray, tenantId]),
-        ]);
+            const [certificateResults, attemptResults] = await Promise.all([
+              this.dataSource.query(certificateQuery, [courseIdArray, userIdArray, tenantId]),
+              this.dataSource.query(attemptQuery, [courseIdArray, userIdArray, tenantId]),
+            ]);
 
-        const statusMap = new Map<
-          string,
-          { status: string; issuedOn: Date | null; createdOn: Date | null; updatedOn: Date | null }
-        >();
-        for (const row of certificateResults) {
-          statusMap.set(`${row.courseId}_${row.userId}`, {
-            status: row.status,
-            issuedOn: row.issuedOn,
-            createdOn: row.createdOn,
-            updatedOn: row.updatedOn,
-          });
-        }
-
-        const attemptMap = new Map<string, number>();
-        for (const row of attemptResults) {
-          attemptMap.set(`${row.courseId}_${row.userId}`, parseInt(row.attempt_count) || 0);
-        }
-
-        const data = courseIdArray.map((courseId) => {
-          const userStatusMap: Record<
-            string,
-            {
-              status: string;
-              highestAttempt: number;
-              issuedOn: Date | null;
-              createdOn: Date | null;
-              updatedOn: Date | null;
+            const statusMap = new Map<
+              string,
+              { status: string; issuedOn: Date | null; createdOn: Date | null; updatedOn: Date | null }
+            >();
+            for (const row of certificateResults) {
+              statusMap.set(`${row.courseId}_${row.userId}`, {
+                status: row.status,
+                issuedOn: row.issuedOn,
+                createdOn: row.createdOn,
+                updatedOn: row.updatedOn,
+              });
             }
-          > = {};
 
-          for (const userId of userIdArray) {
-            const key = `${courseId}_${userId}`;
-            const certificate = statusMap.get(key);
-            const rawStatus = certificate?.status;
-            const status =
-              !rawStatus || rawStatus.toLowerCase() === 'enrolled'
-                ? 'not_started'
-                : rawStatus;
+            const attemptMap = new Map<string, number>();
+            for (const row of attemptResults) {
+              attemptMap.set(`${row.courseId}_${row.userId}`, parseInt(row.attempt_count) || 0);
+            }
 
-            userStatusMap[userId] = {
-              status,
-              highestAttempt: attemptMap.get(key) || 0,
-              issuedOn: certificate?.issuedOn ?? null,
-              createdOn: certificate?.createdOn ?? null,
-              updatedOn: certificate?.updatedOn ?? null,
-            };
-          }
+            return courseIdArray.map((courseId) => {
+              const userStatusMap: Record<
+                string,
+                {
+                  status: string;
+                  highestAttempt: number;
+                  issuedOn: Date | null;
+                  createdOn: Date | null;
+                  updatedOn: Date | null;
+                }
+              > = {};
 
-          return { [courseId]: userStatusMap };
+              for (const userId of userIdArray) {
+                const key = `${courseId}_${userId}`;
+                const certificate = statusMap.get(key);
+                const rawStatus = certificate?.status;
+                const status =
+                  !rawStatus || rawStatus.toLowerCase() === 'enrolled'
+                    ? 'not_started'
+                    : rawStatus;
+
+                userStatusMap[userId] = {
+                  status,
+                  highestAttempt: attemptMap.get(key) || 0,
+                  issuedOn: certificate?.issuedOn ?? null,
+                  createdOn: certificate?.createdOn ?? null,
+                  updatedOn: certificate?.updatedOn ?? null,
+                };
+              }
+
+              return { [courseId]: userStatusMap };
+            });
+          },
         });
 
         this.loggerService.log('success', 'searchStatusCourseTracking');
@@ -680,109 +714,116 @@ export class TrackingContentService {
       }
       else
       {
-        // OPTIMIZED: Single query using JOINs, WHERE IN, and aggregation
-        // This replaces nested loops with hundreds of individual queries
-        const query = `
-          WITH content_status AS (
-            SELECT 
-              ct."userId",
-              ct."courseId",
-              ct."contentId",
-              ct."contentTrackingId",
-              ct."createdOn",
-              ct."resumeData",
-              -- Determine status based on eid events
-              -- END event = Completed, START event = In_Progress, neither = Not_Started
-              CASE 
-                WHEN MAX(CASE WHEN ctd.eid = 'END' THEN 1 ELSE 0 END) = 1 THEN 'Completed'
-                WHEN MAX(CASE WHEN ctd.eid = 'START' THEN 1 ELSE 0 END) = 1 THEN 'In_Progress'
-                ELSE 'Not_Started'
-              END as status
-            FROM content_tracking ct
-            LEFT JOIN content_tracking_details ctd ON ct."contentTrackingId" = ctd."contentTrackingId"
-            WHERE 
-              ct."userId" = ANY($1::uuid[])
-              AND ct."courseId" = ANY($2)
-              AND ct."tenantId" = $3
-            GROUP BY 
-              ct."userId", 
-              ct."courseId", 
-              ct."contentId", 
-              ct."contentTrackingId",
-              ct."createdOn"
-          ),
-          course_summary AS (
-            SELECT 
-              "userId",
-              "courseId",
-              COUNT(*) FILTER (WHERE status = 'In_Progress') as in_progress,
-              COUNT(*) FILTER (WHERE status = 'Completed') as completed,
-              MIN("createdOn") as started_on,
-              array_agg("contentId") FILTER (WHERE status = 'In_Progress') as in_progress_list,
-              array_agg("contentId") FILTER (WHERE status = 'Completed') as completed_list
-            FROM content_status
-            GROUP BY "userId", "courseId"
-          )
-          SELECT 
-            "userId",
-            "courseId",
-            COALESCE(in_progress, 0) as in_progress,
-            COALESCE(completed, 0) as completed,
-            started_on,
-            COALESCE(in_progress_list, ARRAY[]::text[]) as in_progress_list,
-            COALESCE(completed_list, ARRAY[]::text[]) as completed_list
-          FROM course_summary
-          ORDER BY "userId", "courseId";
-        `;
+        const userList = await this.cacheService.getOrLoad({
+          namespace: `course:${tenantId}`,
+          key: `status:${hashCacheParts(userIdArray, courseIdArray)}`,
+          ttlSeconds: COURSE_STATUS_TTL_SECONDS,
+          loader: async () => {
+            // OPTIMIZED: Single query using JOINs, WHERE IN, and aggregation
+            // This replaces nested loops with hundreds of individual queries
+            const query = `
+              WITH content_status AS (
+                SELECT
+                  ct."userId",
+                  ct."courseId",
+                  ct."contentId",
+                  ct."contentTrackingId",
+                  ct."createdOn",
+                  ct."resumeData",
+                  -- Determine status based on eid events
+                  -- END event = Completed, START event = In_Progress, neither = Not_Started
+                  CASE
+                    WHEN MAX(CASE WHEN ctd.eid = 'END' THEN 1 ELSE 0 END) = 1 THEN 'Completed'
+                    WHEN MAX(CASE WHEN ctd.eid = 'START' THEN 1 ELSE 0 END) = 1 THEN 'In_Progress'
+                    ELSE 'Not_Started'
+                  END as status
+                FROM content_tracking ct
+                LEFT JOIN content_tracking_details ctd ON ct."contentTrackingId" = ctd."contentTrackingId"
+                WHERE
+                  ct."userId" = ANY($1::uuid[])
+                  AND ct."courseId" = ANY($2)
+                  AND ct."tenantId" = $3
+                GROUP BY
+                  ct."userId",
+                  ct."courseId",
+                  ct."contentId",
+                  ct."contentTrackingId",
+                  ct."createdOn"
+              ),
+              course_summary AS (
+                SELECT
+                  "userId",
+                  "courseId",
+                  COUNT(*) FILTER (WHERE status = 'In_Progress') as in_progress,
+                  COUNT(*) FILTER (WHERE status = 'Completed') as completed,
+                  MIN("createdOn") as started_on,
+                  array_agg("contentId") FILTER (WHERE status = 'In_Progress') as in_progress_list,
+                  array_agg("contentId") FILTER (WHERE status = 'Completed') as completed_list
+                FROM content_status
+                GROUP BY "userId", "courseId"
+              )
+              SELECT
+                "userId",
+                "courseId",
+                COALESCE(in_progress, 0) as in_progress,
+                COALESCE(completed, 0) as completed,
+                started_on,
+                COALESCE(in_progress_list, ARRAY[]::text[]) as in_progress_list,
+                COALESCE(completed_list, ARRAY[]::text[]) as completed_list
+              FROM course_summary
+              ORDER BY "userId", "courseId";
+            `;
 
-        const results = await this.dataSource.query(query, [
-          userIdArray,
-          courseIdArray,
-          tenantId,
-        ]);
+            const results = await this.dataSource.query(query, [
+              userIdArray,
+              courseIdArray,
+              tenantId,
+            ]);
 
-        // Transform results into the expected format
-        const userMap = new Map<string, any>();
+            // Transform results into the expected format
+            const userMap = new Map<string, any>();
 
-        for (const row of results) {
-          const userId = row.userId;
-          const courseId = row.courseId;
+            for (const row of results) {
+              const userId = row.userId;
+              const courseId = row.courseId;
 
-          if (!userMap.has(userId)) {
-            userMap.set(userId, {
-              userId: userId,
-              course: [],
-            });
-          }
+              if (!userMap.has(userId)) {
+                userMap.set(userId, {
+                  userId: userId,
+                  course: [],
+                });
+              }
 
-          userMap.get(userId).course.push({
-            courseId: courseId,
-            in_progress: parseInt(row.in_progress) || 0,
-            completed: parseInt(row.completed) || 0,
-            started_on: row.started_on,
-            in_progress_list: row.in_progress_list || [],
-            completed_list: row.completed_list || [],
-          });
-        }
-
-        // Ensure all requested users are in the response, even with no data
-        const userList = userIdArray.map((userId) => {
-          if (userMap.has(userId)) {
-            return userMap.get(userId);
-          } else {
-            // User has no tracking data, return empty course list
-            return {
-              userId: userId,
-              course: courseIdArray.map((courseId) => ({
+              userMap.get(userId).course.push({
                 courseId: courseId,
-                in_progress: 0,
-                completed: 0,
-                started_on: null,
-                in_progress_list: [],
-                completed_list: [],
-              })),
-            };
-          }
+                in_progress: parseInt(row.in_progress) || 0,
+                completed: parseInt(row.completed) || 0,
+                started_on: row.started_on,
+                in_progress_list: row.in_progress_list || [],
+                completed_list: row.completed_list || [],
+              });
+            }
+
+            // Ensure all requested users are in the response, even with no data
+            return userIdArray.map((userId) => {
+              if (userMap.has(userId)) {
+                return userMap.get(userId);
+              } else {
+                // User has no tracking data, return empty course list
+                return {
+                  userId: userId,
+                  course: courseIdArray.map((courseId) => ({
+                    courseId: courseId,
+                    in_progress: 0,
+                    completed: 0,
+                    started_on: null,
+                    in_progress_list: [],
+                    completed_list: [],
+                  })),
+                };
+              }
+            });
+          },
         });
 
         this.loggerService.log('success', 'searchStatusCourseTracking');
@@ -832,60 +873,69 @@ export class TrackingContentService {
       let courseId = searchFilter?.courseId;
       let unitIdArray = searchFilter?.unitId;
       let userIdArray = searchFilter?.userId;
-      let userList = [];
-      for (let ii = 0; ii < userIdArray.length; ii++) {
-        let userId = userIdArray[ii];
-        let unitList = [];
-        for (let jj = 0; jj < unitIdArray.length; jj++) {
-          let unitId = unitIdArray[jj];
-          const result = await this.dataSource.query(
-            `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId","tenantId","resumeData" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "unitId"=$3 and "tenantId"=$4 order by "createdOn" asc;`,
-            [userId, courseId, unitId, tenantId],
-          );
-          let in_progress = 0;
-          let completed = 0;
-          let in_progress_list = [];
-          let completed_list = [];
-          for (let i = 0; i < result.length; i++) {
-            const result_details = await this.dataSource.query(
-              `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
-              [result[i].contentTrackingId],
-            );
-            //find status
-            let percentage = 0;
-            let status = 'Not_Started';
-            for (let j = 0; j < result_details.length; j++) {
-              let temp_result_details = result_details[j];
-              if (temp_result_details?.eid == 'START') {
-                status = 'In_Progress';
-                percentage = temp_result_details?.progress;
+
+      const userList = await this.cacheService.getOrLoad({
+        namespace: `content:${tenantId}`,
+        key: `unitstatus:${hashCacheParts(userIdArray, unitIdArray, courseId)}`,
+        ttlSeconds: CONTENT_STATUS_TTL_SECONDS,
+        loader: async () => {
+          const loaded = [];
+          for (let ii = 0; ii < userIdArray.length; ii++) {
+            let userId = userIdArray[ii];
+            let unitList = [];
+            for (let jj = 0; jj < unitIdArray.length; jj++) {
+              let unitId = unitIdArray[jj];
+              const result = await this.dataSource.query(
+                `SELECT "contentTrackingId","userId","courseId","lastAccessOn","createdOn","updatedOn","contentId","tenantId","resumeData" FROM content_tracking WHERE "userId"=$1 and "courseId"=$2 and "unitId"=$3 and "tenantId"=$4 order by "createdOn" asc;`,
+                [userId, courseId, unitId, tenantId],
+              );
+              let in_progress = 0;
+              let completed = 0;
+              let in_progress_list = [];
+              let completed_list = [];
+              for (let i = 0; i < result.length; i++) {
+                const result_details = await this.dataSource.query(
+                  `SELECT "eid","edata","duration","mode","pageid","type","subtype","summary","progress","createdOn","updatedOn" FROM content_tracking_details WHERE "contentTrackingId"=$1 `,
+                  [result[i].contentTrackingId],
+                );
+                //find status
+                let percentage = 0;
+                let status = 'Not_Started';
+                for (let j = 0; j < result_details.length; j++) {
+                  let temp_result_details = result_details[j];
+                  if (temp_result_details?.eid == 'START') {
+                    status = 'In_Progress';
+                    percentage = temp_result_details?.progress;
+                  }
+                  if (temp_result_details?.eid == 'END') {
+                    status = 'Completed';
+                    percentage = temp_result_details?.progress;
+                    break;
+                  }
+                }
+                if (status == 'In_Progress') {
+                  in_progress++;
+                  in_progress_list.push(result[i].contentId);
+                } else if (status == 'Completed') {
+                  completed++;
+                  completed_list.push(result[i].contentId);
+                }
               }
-              if (temp_result_details?.eid == 'END') {
-                status = 'Completed';
-                percentage = temp_result_details?.progress;
-                break;
-              }
+              unitList.push({
+                unitId: unitId,
+                courseId: courseId,
+                in_progress: in_progress,
+                completed: completed,
+                started_on: result[0]?.createdOn ? result[0].createdOn : null,
+                in_progress_list: in_progress_list,
+                completed_list: completed_list,
+              });
             }
-            if (status == 'In_Progress') {
-              in_progress++;
-              in_progress_list.push(result[i].contentId);
-            } else if (status == 'Completed') {
-              completed++;
-              completed_list.push(result[i].contentId);
-            }
+            loaded.push({ userId: userId, unit: unitList });
           }
-          unitList.push({
-            unitId: unitId,
-            courseId: courseId,
-            in_progress: in_progress,
-            completed: completed,
-            started_on: result[0]?.createdOn ? result[0].createdOn : null,
-            in_progress_list: in_progress_list,
-            completed_list: completed_list,
-          });
-        }
-        userList.push({ userId: userId, unit: unitList });
-      }
+          return loaded;
+        },
+      });
       this.loggerService.log('success', 'searchStatusUnitTracking');
       return response.status(200).send({
         success: true,
@@ -1196,9 +1246,6 @@ export class TrackingContentService {
   ) {
     const apiId = 'api.delete.content';
     try {
-      // Extract tenantId from request headers
-      const tenantId = request.headers.tenantId || request.headers.tenantid || request.headers['x-tenant-id'] || null;
-
       if (!isUUID(contentTrackingId)) {
         return APIResponse.error(
           response,
@@ -1230,6 +1277,9 @@ export class TrackingContentService {
         );
       }
 
+      // Snapshot before delete - the row (and its tenantId) won't exist to read afterward.
+      const tenantId = getContentData.tenantId;
+
       const deleteContent = await this.contentTrackingRepository.delete({
         contentTrackingId: contentTrackingId,
       });
@@ -1242,6 +1292,16 @@ export class TrackingContentService {
           'Content data deleted successfully.',
           apiId,
           contentTrackingId,
+        );
+
+        await this.cacheService.invalidate(
+          [
+            `contentread:${contentTrackingId}`,
+            `content:${tenantId}`,
+            `course:${tenantId}`,
+            'courseinprogress',
+          ],
+          'deleteContentTracking',
         );
 
         // Publish content tracking delete event to Kafka
@@ -1281,38 +1341,47 @@ export class TrackingContentService {
     try {
       //userId
       let userIdArray = searchFilter?.userId;
-      let userList = [];
-      for (let i = 0; i < userIdArray.length; i++) {
-        let userId = userIdArray[i];
-        //get course id
-        const result = await this.dataSource.query(
-          `SELECT ct."courseId"
-          FROM public.content_tracking ct
-          JOIN public.content_tracking_details ctd
-            ON ct."contentTrackingId" = ctd."contentTrackingId"
-          WHERE ct."userId"=$1
-            AND NOT EXISTS (
-              SELECT 1
-              FROM public.content_tracking_details ctd2
-              WHERE ctd2."contentTrackingId" = ct."contentTrackingId"
-                AND ctd2."eid" = 'END'
-            )
-          ORDER BY ctd."updatedOn" DESC
-          LIMIT 10;`,
-          [userId],
-        );
-        let seen = new Set();
-        let uniqueCourseIds = [];
-        if (result && result.length > 0) {
-          result.forEach((item) => {
-            if (!seen.has(item.courseId)) {
-              seen.add(item.courseId);
-              uniqueCourseIds.push(item);
+
+      const userList = await this.cacheService.getOrLoad({
+        namespace: 'courseinprogress',
+        key: hashCacheParts(userIdArray),
+        ttlSeconds: COURSE_IN_PROGRESS_TTL_SECONDS,
+        loader: async () => {
+          const loaded = [];
+          for (let i = 0; i < userIdArray.length; i++) {
+            let userId = userIdArray[i];
+            //get course id
+            const result = await this.dataSource.query(
+              `SELECT ct."courseId"
+              FROM public.content_tracking ct
+              JOIN public.content_tracking_details ctd
+                ON ct."contentTrackingId" = ctd."contentTrackingId"
+              WHERE ct."userId"=$1
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM public.content_tracking_details ctd2
+                  WHERE ctd2."contentTrackingId" = ct."contentTrackingId"
+                    AND ctd2."eid" = 'END'
+                )
+              ORDER BY ctd."updatedOn" DESC
+              LIMIT 10;`,
+              [userId],
+            );
+            let seen = new Set();
+            let uniqueCourseIds = [];
+            if (result && result.length > 0) {
+              result.forEach((item) => {
+                if (!seen.has(item.courseId)) {
+                  seen.add(item.courseId);
+                  uniqueCourseIds.push(item);
+                }
+              });
             }
-          });
-        }
-        userList.push({ userId: userId, courseIdList: uniqueCourseIds });
-      }
+            loaded.push({ userId: userId, courseIdList: uniqueCourseIds });
+          }
+          return loaded;
+        },
+      });
       this.loggerService.log('success', 'courseinprogress');
       return response.status(200).send({
         success: true,

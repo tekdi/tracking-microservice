@@ -10,6 +10,10 @@ import { LoggerService } from 'src/common/logger/logger.service';
 import { ConfigService } from '@nestjs/config';
 import { CreateUserCourseCertificateDto } from './dto/create-user-course-certificate.dto';
 import { KafkaService } from 'src/kafka/kafka.service';
+import { CacheService } from 'src/cache/cache.service';
+import { hashCacheParts } from 'src/cache/cache-key.util';
+
+const USERCERT_TTL_SECONDS = 120;
 
 @Injectable()
 export class UserCertificateService {
@@ -19,6 +23,7 @@ export class UserCertificateService {
     private loggerService: LoggerService,
     private configService: ConfigService,
     private kafkaService: KafkaService,
+    private cacheService: CacheService,
   ) {}
 
   async enrollUserForCourse(
@@ -58,6 +63,12 @@ export class UserCertificateService {
         );
       }
       const result = await this.userCourseCertificateRepository.save(data);
+
+      await this.cacheService.invalidate(
+        [`usercert:${tenantId}`, `course:${tenantId}`],
+        'enrollUserForCourse',
+      );
+
       await this.publishUserCourseEvent('course_created', data, data.courseId);
 
       return APIResponse.success(
@@ -105,6 +116,11 @@ export class UserCertificateService {
         let updateResult =
           await this.userCourseCertificateRepository.save(userCertificate);
         if (updateResult) {
+          await this.cacheService.invalidate(
+            [`usercert:${tenantId}`, `course:${tenantId}`],
+            'updateUserStatusForCourse',
+          );
+
           this.loggerService.log(
             'User status for course successfully updated to ' + data.status,
           );
@@ -153,14 +169,21 @@ export class UserCertificateService {
     // Extract tenantId from request (validated by TenantGuard)
     const tenantId = request.tenantId;
     try {
-      const userCertificate =
-        await this.userCourseCertificateRepository.findOne({
-          where: {
-            userId: data.userId,
-            courseId: data.courseId,
-            tenantId: data.tenantId,
-          },
-        });
+      const userCertificate = await this.cacheService.getOrLoad({
+        namespace: `usercert:${tenantId}`,
+        key: `get:${data.userId}:${data.courseId}`,
+        ttlSeconds: USERCERT_TTL_SECONDS,
+        loader: async () => {
+          const found = await this.userCourseCertificateRepository.findOne({
+            where: {
+              userId: data.userId,
+              courseId: data.courseId,
+              tenantId: tenantId,
+            },
+          });
+          return found ? found : null;
+        },
+      });
       if (userCertificate) {
         this.loggerService.log('User status for course fetched successfully');
         return APIResponse.success(
@@ -199,54 +222,66 @@ export class UserCertificateService {
     // Extract tenantId from request (validated by TenantGuard)
     const tenantId = request.tenantId;
     try {
-      const queryBuilder =
-        this.userCourseCertificateRepository.createQueryBuilder(
-          'UserCourseCertificate',
-        );
+      const responseData = await this.cacheService.getOrLoad({
+        namespace: `usercert:${tenantId}`,
+        key: `search:${hashCacheParts(
+          filters,
+          searchObj.limit,
+          searchObj.offset,
+        )}`,
+        ttlSeconds: USERCERT_TTL_SECONDS,
+        loader: async () => {
+          const queryBuilder =
+            this.userCourseCertificateRepository.createQueryBuilder(
+              'UserCourseCertificate',
+            );
 
-      // Always filter by tenantId from header
-      queryBuilder.andWhere('UserCourseCertificate.tenantId = :tenantId', {
-        tenantId: tenantId,
-      });
-
-      // Dynamically build query based on filters object
-      Object.keys(filters).forEach((key) => {
-        const value = filters[key];
-
-        if (Array.isArray(value) && value.length > 0) {
-          // Array filter - use IN clause
-          queryBuilder.andWhere(
-            `UserCourseCertificate.${key} IN (:...${key})`,
-            {
-              [key]: value,
-            },
-          );
-        } else if (value) {
-          // Single value filter - use equality
-          queryBuilder.andWhere(`UserCourseCertificate.${key} = :${key}`, {
-            [key]: value,
+          // Always filter by tenantId from header
+          queryBuilder.andWhere('UserCourseCertificate.tenantId = :tenantId', {
+            tenantId: tenantId,
           });
-        }
+
+          // Dynamically build query based on filters object
+          Object.keys(filters).forEach((key) => {
+            const value = filters[key];
+
+            if (Array.isArray(value) && value.length > 0) {
+              // Array filter - use IN clause
+              queryBuilder.andWhere(
+                `UserCourseCertificate.${key} IN (:...${key})`,
+                {
+                  [key]: value,
+                },
+              );
+            } else if (value) {
+              // Single value filter - use equality
+              queryBuilder.andWhere(`UserCourseCertificate.${key} = :${key}`, {
+                [key]: value,
+              });
+            }
+          });
+          const count = await queryBuilder.getCount();
+
+          // Apply limit and offset if provided in request body
+          if (searchObj.limit !== undefined) {
+            queryBuilder.limit(searchObj.limit);
+          }
+          if (searchObj.offset !== undefined) {
+            queryBuilder.offset(searchObj.offset);
+          }
+
+          const result = await queryBuilder.getMany();
+          return {
+            data: result,
+            count: count,
+          };
+        },
       });
-      const count = await queryBuilder.getCount();
-      
-      // Apply limit and offset if provided in request body
-      if (searchObj.limit !== undefined) {
-        queryBuilder.limit(searchObj.limit);
-      }
-      if (searchObj.offset !== undefined) {
-        queryBuilder.offset(searchObj.offset);
-      }
-      
-      const result = await queryBuilder.getMany();
       this.loggerService.log('Users status for courses fetched successfully');
       return APIResponse.success(
         response,
         apiId,
-        {
-          data: result,
-          count: count,
-        },
+        responseData,
         HttpStatus.OK,
         'Users status for courses fetched successfully',
       );
@@ -294,6 +329,11 @@ export class UserCertificateService {
       }
       const result = await this.userCourseCertificateRepository.save(
         createUserCertificateDto,
+      );
+
+      await this.cacheService.invalidate(
+        `usercert:${tenantId}`,
+        'importUserDataForCertificate',
       );
 
       return APIResponse.success(
