@@ -582,6 +582,52 @@ export class TrackingContentService {
       let courseIdArray = searchFilter?.courseId;
       let userIdArray = searchFilter?.userId;
       let type = searchFilter?.type;
+      let fromDate = searchFilter?.fromDate;
+      let toDate = searchFilter?.toDate;
+
+      if (type && type == 'topperformer') {
+        if (!userIdArray || !Array.isArray(userIdArray) || userIdArray.length === 0) {
+          return response.status(400).send({
+            success: false,
+            message: 'userId array is required',
+            data: {},
+          });
+        }
+
+        if (!fromDate || !toDate) {
+          return response.status(400).send({
+            success: false,
+            message: 'fromDate and toDate are required',
+            data: {},
+          });
+        }
+
+        const certificateQuery = `
+          SELECT "userId", "courseId", "certificateId", status, "issuedOn", "createdOn", "updatedOn", "completedOn", "completionPercentage", progress
+          FROM user_course_certificate
+          WHERE "userId" = ANY($1::uuid[]) AND "tenantId" = $2 AND "issuedOn" >= $3 AND "issuedOn" <= $4
+          ORDER BY "issuedOn" DESC
+        `;
+
+        const certificateResults = await this.dataSource.query(certificateQuery, [
+          userIdArray,
+          tenantId,
+          fromDate,
+          toDate,
+        ]);
+
+        const data = userIdArray.map((userId) => ({
+          userId,
+          certificates: certificateResults.filter((row) => row.userId === userId),
+        }));
+
+        this.loggerService.log('success', 'searchStatusCourseTracking');
+        return response.status(200).send({
+          success: true,
+          message: 'success',
+          data,
+        });
+      }
 
       // Validate input
       if (!courseIdArray || !Array.isArray(courseIdArray) || courseIdArray.length === 0) {
