@@ -396,7 +396,7 @@ export class CertificateService implements OnModuleDestroy {
             `usercert:${userCertificate.tenantId}`,
             `course:${userCertificate.tenantId}`,
           ],
-          'updateUserCertificate',
+          'CertificateService.updateUserCertificate',
         );
 
         this.loggerService.log('Successfully updated user certificate');

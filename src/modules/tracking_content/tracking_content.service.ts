@@ -309,7 +309,7 @@ export class TrackingContentService {
 
       await this.cacheService.invalidate(
         [`content:${tenantId}`, `course:${tenantId}`, 'courseinprogress'],
-        'createContentTracking',
+        'TrackingContentService.createContentTracking',
       );
 
       // Publish content tracking event to Kafka with only new details
@@ -1301,7 +1301,7 @@ export class TrackingContentService {
             `course:${tenantId}`,
             'courseinprogress',
           ],
-          'deleteContentTracking',
+          'TrackingContentService.deleteContentTracking',
         );
 
         // Publish content tracking delete event to Kafka

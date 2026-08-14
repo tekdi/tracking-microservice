@@ -9,7 +9,6 @@ export interface CacheConfig {
   opTimeoutMs: number;
   cbFailures: number;
   cbCooldownMs: number;
-  metricsIntervalMs: number;
 }
 
 export function loadCacheConfig(get: (key: string) => any): CacheConfig {
@@ -26,6 +25,5 @@ export function loadCacheConfig(get: (key: string) => any): CacheConfig {
     opTimeoutMs: Number(get('CACHE_OP_TIMEOUT_MS') ?? 150),
     cbFailures: Number(get('CACHE_CB_FAILURES') ?? 5),
     cbCooldownMs: Number(get('CACHE_CB_COOLDOWN_MS') ?? 30000),
-    metricsIntervalMs: Number(get('CACHE_METRICS_INTERVAL_MS') ?? 60000),
   };
 }

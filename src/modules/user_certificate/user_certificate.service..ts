@@ -66,7 +66,7 @@ export class UserCertificateService {
 
       await this.cacheService.invalidate(
         [`usercert:${tenantId}`, `course:${tenantId}`],
-        'enrollUserForCourse',
+        'UserCertificateService.enrollUserForCourse',
       );
 
       await this.publishUserCourseEvent('course_created', data, data.courseId);
@@ -118,7 +118,7 @@ export class UserCertificateService {
         if (updateResult) {
           await this.cacheService.invalidate(
             [`usercert:${tenantId}`, `course:${tenantId}`],
-            'updateUserStatusForCourse',
+            'UserCertificateService.updateUserStatusForCourse',
           );
 
           this.loggerService.log(
@@ -333,7 +333,7 @@ export class UserCertificateService {
 
       await this.cacheService.invalidate(
         `usercert:${tenantId}`,
-        'importUserDataForCertificate',
+        'UserCertificateService.importUserDataForCertificate',
       );
 
       return APIResponse.success(

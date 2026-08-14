@@ -335,7 +335,7 @@ export class TrackingAssessmentService {
 
       await this.cacheService.invalidate(
         `assessment:${tenantId}`,
-        'createAssessmentTracking',
+        'TrackingAssessmentService.createAssessmentTracking',
       );
 
       this.publishTrackingEvent('created', result.assessmentTrackingId, apiId);
@@ -460,7 +460,7 @@ export class TrackingAssessmentService {
           `assessmentread:${assessmentTrackingId}`,
           `assessment:${existingRecord.tenantId}`,
         ],
-        'updateAssessmentTracking',
+        'TrackingAssessmentService.updateAssessmentTracking',
       );
 
       this.loggerService.log(
@@ -1238,7 +1238,7 @@ export class TrackingAssessmentService {
             `assessmentread:${assessmentTrackingId}`,
             `assessment:${getAssessmentData.tenantId}`,
           ],
-          'deleteAssessmentTracking',
+          'TrackingAssessmentService.deleteAssessmentTracking',
         );
 
         return APIResponse.success(

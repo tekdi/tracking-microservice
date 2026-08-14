@@ -47,6 +47,30 @@ bumps a namespace's version counter. Nothing is ever deleted from the cache.
 represents "not found" or "no rows" is ever cached, so a query that returns no
 rows always re-hits the DB rather than caching a false negative.
 
+Every one of these steps also logs at debug level as it happens — there is
+no periodic aggregate log, every cache read and write is logged
+individually:
+
+- `cache GET hit ns=content:t1 key=search:ab12 v=8` — served from Redis, DB
+  never touched.
+- `cache GET miss ns=content:t1 key=search:ab12 v=8 - loading from source` —
+  about to run the DB loader.
+- `cache SET ns=content:t1 key=search:ab12 ttl=60s` — the loader's result
+  just got written back to Redis after a miss.
+- `cache GET error ns=content:t1 key=search:ab12 - loading from source: ...`
+  — a Redis timeout/failure on the read; falls straight through to the DB
+  loader.
+
+Grepping for `cache GET` or `cache SET` gives a live, per-request trace of
+what's hitting Redis versus the database — this replaced an earlier design
+where hit/miss/error/bypass counts were aggregated in-process and flushed to
+one `cache metrics {...}` log line on a timer
+(`CACHE_METRICS_INTERVAL_MS`). That timer and config variable no longer
+exist; logging is now always per-operation, not periodic. The same running
+hit/miss/error/bypass counters are still tracked in memory and exposed via
+`GET /v1/tracking/health` (see §1.6) — only the periodic auto-log of them
+was removed.
+
 ### 1.3 How invalidation works
 
 ```ts
@@ -120,11 +144,11 @@ one it's talking to.
 | `CACHE_DISABLED_NAMESPACES` | empty | comma-separated bypass list, matched by family (before first `:`) or exact namespace |
 | `CACHE_OP_TIMEOUT_MS` | `150` | per-op timeout |
 | `CACHE_CB_FAILURES` / `CACHE_CB_COOLDOWN_MS` | `5` / `30000` | circuit breaker |
-| `CACHE_METRICS_INTERVAL_MS` | `60000` | how often `cache metrics {...}` is logged |
 
 `GET /v1/tracking/health` reports live cache status (`enabled`, `provider`,
-`redis` up/down, `circuitOpen`, `disabledNamespaces`, and the current
-hit/miss/error/bypass counters) via `cacheService.getHealthInfo()`.
+`redis` up/down, `circuitOpen`, `disabledNamespaces`, and the running
+hit/miss/error/bypass counters since process start) via
+`cacheService.getHealthInfo()`.
 
 ---
 

@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CACHE_STORE, CacheConfig, loadCacheConfig } from './cache.constants';
 import { CacheStore } from './cache-store.interface';
@@ -18,11 +18,10 @@ export interface FamilyMetrics {
 }
 
 @Injectable()
-export class CacheService implements OnModuleDestroy {
+export class CacheService {
   private readonly logger = new Logger('CacheService');
   private readonly config: CacheConfig;
   private readonly metrics = new Map<string, FamilyMetrics>();
-  private readonly metricsTimer: NodeJS.Timeout;
 
   private cbFailureCount = 0;
   private cbOpenUntil = 0;
@@ -32,15 +31,6 @@ export class CacheService implements OnModuleDestroy {
     @Inject(CACHE_STORE) private readonly store: CacheStore,
   ) {
     this.config = loadCacheConfig((k) => this.configService.get(k));
-    this.metricsTimer = setInterval(
-      () => this.logMetrics(),
-      this.config.metricsIntervalMs,
-    );
-    this.metricsTimer.unref?.();
-  }
-
-  onModuleDestroy() {
-    clearInterval(this.metricsTimer);
   }
 
   async getOrLoad<T>({
@@ -62,15 +52,19 @@ export class CacheService implements OnModuleDestroy {
     }
 
     let entryKey: string | null = null;
+    let version: number | null = null;
     let cached: string | null = null;
     try {
-      const version = await this.withTimeout(this.getVersion(namespace));
+      version = await this.withTimeout(this.getVersion(namespace));
       entryKey = this.entryKey(namespace, version, key);
       cached = await this.withTimeout(this.store.get(entryKey));
       this.onOpSuccess();
-    } catch (err) {
+    } catch (err: any) {
       this.onOpFailure();
       this.record(namespace, 'error');
+      this.logger.debug(
+        `cache ERROR ns=${namespace} key=${key} msg=${err.message}`,
+      );
       return loader();
     }
 
@@ -78,6 +72,7 @@ export class CacheService implements OnModuleDestroy {
       try {
         const parsed = JSON.parse(cached) as T;
         this.record(namespace, 'hit');
+        this.logger.debug(`cache HIT ns=${namespace} key=${key}`);
         return parsed;
       } catch {
         // Corrupt entry - fall through and treat as a miss.
@@ -85,9 +80,10 @@ export class CacheService implements OnModuleDestroy {
     }
 
     this.record(namespace, 'miss');
+    this.logger.debug(`cache MISS ns=${namespace} key=${key}`);
     const result = await loader();
     if (entryKey && this.isCacheable(result)) {
-      this.writeCacheEntry(entryKey, result, ttlSeconds);
+      this.writeCacheEntry(namespace, key, entryKey, ttlSeconds, result);
     }
     return result;
   }
@@ -135,7 +131,7 @@ export class CacheService implements OnModuleDestroy {
       const v = await this.withTimeout(this.store.incr(this.versionKey(namespace)));
       this.onOpSuccess();
       this.logger.debug(`cache INCR ns=${namespace} v=${v} caller=${caller}`);
-    } catch (err) {
+    } catch (err: any) {
       this.onOpFailure();
       this.logger.error(
         `cache INCR failed ns=${namespace} caller=${caller}: ${err.message}`,
@@ -143,12 +139,26 @@ export class CacheService implements OnModuleDestroy {
     }
   }
 
-  private writeCacheEntry(entryKey: string, result: unknown, ttlSeconds: number) {
+  private writeCacheEntry(
+    namespace: string,
+    key: string,
+    entryKey: string,
+    ttlSeconds: number,
+    result: unknown,
+  ) {
     this.withTimeout(
       this.store.set(entryKey, JSON.stringify(result), ttlSeconds),
     )
-      .then(() => this.onOpSuccess())
-      .catch(() => this.onOpFailure());
+      .then(() => {
+        this.onOpSuccess();
+        this.logger.debug(`cache SET ns=${namespace} key=${key}`);
+      })
+      .catch((err) => {
+        this.onOpFailure();
+        this.logger.error(
+          `cache ERROR ns=${namespace} key=${key} msg=${err.message}`,
+        );
+      });
   }
 
   private async getVersion(namespace: string): Promise<number> {
@@ -235,17 +245,5 @@ export class CacheService implements OnModuleDestroy {
     };
     m[kind]++;
     this.metrics.set(family, m);
-  }
-
-  private logMetrics() {
-    if (this.metrics.size === 0) {
-      return;
-    }
-    const snapshot: Record<string, FamilyMetrics> = {};
-    for (const [family, m] of this.metrics.entries()) {
-      snapshot[family] = { ...m };
-    }
-    this.metrics.clear();
-    this.logger.log(`cache metrics ${JSON.stringify(snapshot)}`);
   }
 }
