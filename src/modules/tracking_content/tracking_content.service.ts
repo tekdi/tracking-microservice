@@ -227,7 +227,7 @@ export class TrackingContentService {
 
       //find contentTracking
       const result_content = await this.dataSource.query(
-        `SELECT "contentTrackingId" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
+        `SELECT "contentTrackingId","contentType","contentMime" FROM content_tracking WHERE "userId"=$1 and "contentId"=$2 and "courseId"=$3 and "unitId"=$4 and "tenantId"=$5`,
         [
           createContentTrackingDto?.userId,
           createContentTrackingDto?.contentId,
@@ -239,6 +239,25 @@ export class TrackingContentService {
       let contentTrackingId = '';
       if (result_content.length > 0) {
         contentTrackingId = result_content[0]?.contentTrackingId;
+        try{     
+          let contentType = result_content[0]?.contentType;
+          let contentMime = result_content[0]?.contentMime;
+          let checkContentType = ['COLLECTION','h5p','html','mp3','mp4','pdf','quml','webm','youtube']
+          let checkcContentMime = ['application/vnd.ekstep.content-collection','mp3','quml','mp4']
+          //update contentType and contentMime if data mismatch
+          if(checkContentType.includes(contentType) || checkcContentMime.includes(contentMime))
+          {
+            await this.dataSource.query(
+              `UPDATE content_tracking set "contentType"=$2, "contentMime"=$3 WHERE "contentTrackingId"=$1`,
+              [
+                contentTrackingId,
+                createContentTrackingDto?.contentType,
+                createContentTrackingDto?.contentMime,
+              ],
+            );
+          }
+        }
+        catch(e){}
       } else {
         const result = await this.contentTrackingRepository.save(
           createContentTrackingDto,
