@@ -1,4 +1,4 @@
-import { Expose } from 'class-transformer';
+import { Expose, Transform } from 'class-transformer';
 import {
   IsNotEmpty,
   IsString,
@@ -94,6 +94,9 @@ export class CreateAssessmentTrackingDto {
     description: 'Time Spent',
   })
   @Expose()
+  @Transform(({ value }) =>
+    value !== undefined && value !== null && value !== '' ? Number(value) : value,
+  )
   @IsNumber()
   @IsNotEmpty()
   timeSpent: number;
