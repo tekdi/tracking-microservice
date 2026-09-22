@@ -159,6 +159,59 @@ export class TrackingContentService {
     }
     return false;
   }
+  /**
+   * Normalizes the incoming contentType to the canonical uppercase value so
+   * that variant spellings never generate duplicate tracking records.
+   *
+   * Canonical mapping:
+   *  mp3  / AUDIO_MP3         → AUDIO_MP3
+   *  mp4  / VIDEO_MP4         → VIDEO_MP4
+   *  pdf  / PDF               → PDF
+   *  h5p  / H5P               → H5P
+   *  html / HTML              → HTML
+   *  quml / QUESTION_SET      → QUESTION_SET
+   *  COLLECTION               → COLLECTION
+   *  webm                     → webm
+   *  youtube / YOUTUBE_X_VIDEO → YOUTUBE_X_VIDEO
+   */
+  private normalizeContentType(rawType: string): string {
+    if (!rawType) return rawType;
+
+    const CONTENT_TYPE_MAP: Record<string, string> = {
+      // Audio
+      audio_mp3: 'AUDIO_MP3',
+      mp3:       'AUDIO_MP3',
+
+      // Video
+      video_mp4: 'VIDEO_MP4',
+      mp4:       'VIDEO_MP4',
+      webm:      'webm',
+
+      // Documents
+      pdf: 'PDF',
+
+      // Interactive / HTML
+      h5p:  'H5P',
+      html: 'HTML',
+
+      // Question / Quiz
+      question_set: 'QUESTION_SET',
+      quml:         'QUESTION_SET',
+
+      // Collection
+      collection: 'COLLECTION',
+
+      // YouTube
+      youtube_x_video: 'YOUTUBE_X_VIDEO',
+      youtube:         'YOUTUBE_X_VIDEO',
+    };
+
+    const normalized = CONTENT_TYPE_MAP[rawType.toLowerCase()];
+    // Return the canonical form if found, otherwise return the original value
+    // lowercased so at least the casing is consistent.
+    return normalized ?? rawType.toLowerCase();
+  }
+
   public async createContentTracking(
     request: any,
     createContentTrackingDto: CreateContentTrackingDto,
@@ -221,6 +274,15 @@ export class TrackingContentService {
       //get detailsObject for extract details
       const detailsObject : any = createContentTrackingDto.detailsObject;
       delete createContentTrackingDto.detailsObject;
+
+      // Normalize contentType to a canonical value so that variant spellings
+      // (e.g. "AUDIO_MP3" vs "mp3", "VIDEO_MP4" vs "mp4") never produce
+      // duplicate content_tracking rows for the same logical content type.
+      if (createContentTrackingDto.contentType) {
+        createContentTrackingDto.contentType = this.normalizeContentType(
+          createContentTrackingDto.contentType,
+        );
+      }
 
       // Add tenantId to the DTO (validated by TenantGuard)
       createContentTrackingDto['tenantId'] = tenantId;
