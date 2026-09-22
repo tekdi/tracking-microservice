@@ -8,7 +8,6 @@ import {
   Post,
   Body,
   Delete,
-  UseInterceptors,
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
@@ -28,7 +27,6 @@ import {
 import { CreateAssessmentTrackingDto } from './dto/tracking-assessment-create-dto';
 import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dto';
 import { TrackingAssessmentService } from './tracking_assessment.service';
-import { CacheInterceptor } from '@nestjs/cache-manager';
 import { CheckSubmissionStatusDto } from '../ai_assessment/dto/check-submission-status-dto';
 import { TenantGuard } from 'src/common/guards/tenant.guard';
 //import { AllExceptionsFilter } from 'src/common/utils/exception.filter';
@@ -48,7 +46,6 @@ export class TrackingAssessmentController {
   @ApiNotFoundResponse({ description: 'Assessment Not Found' })
   @ApiInternalServerErrorResponse({ description: 'Internal Server Error.' })
   @ApiBadRequestResponse({ description: 'Bad Request' })
-  @UseInterceptors(CacheInterceptor)
   public async getAssessmentTrackingDetails(
     @Param('assessmentTrackingId') assessmentTrackingId: string,
     @Req() request: Request,

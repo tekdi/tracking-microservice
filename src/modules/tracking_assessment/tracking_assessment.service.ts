@@ -16,8 +16,6 @@ import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
 import { SearchAssessmentTrackingDto } from './dto/tracking-assessment-search-dto';
 import { IsUUID, isUUID } from 'class-validator';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
@@ -26,6 +24,11 @@ import { AiAssessment } from '../ai_assessment/entities/ai-assessment-entity';
 import { AnswerSheetSubmissions } from 'src/modules/answer_sheet_submissions/entities/answer-sheet-submissions-entity';
 import { AnswerSheetSubmissionsService } from 'src/modules/answer_sheet_submissions/answer_sheet_submissions.service';
 import { In, Not } from 'typeorm';
+import { CacheService } from 'src/cache/cache.service';
+import { hashCacheParts } from 'src/cache/cache-key.util';
+
+const ASSESSMENT_READ_TTL_SECONDS = 300;
+const ASSESSMENT_STATUS_TTL_SECONDS = 60;
 
 @Injectable()
 export class TrackingAssessmentService {
@@ -40,7 +43,7 @@ export class TrackingAssessmentService {
     @InjectRepository(AnswerSheetSubmissions)
     private answersheetSubmissionRepository: Repository<AnswerSheetSubmissions>,
     private configService: ConfigService,
-    @Inject(CACHE_MANAGER) private cacheService: Cache,
+    private cacheService: CacheService,
     private dataSource: DataSource,
     private loggerService: LoggerService,
     private readonly kafkaService: KafkaService,
@@ -90,24 +93,15 @@ export class TrackingAssessmentService {
       );
     }
     try {
-      const ttl = this.ttl;
-      const cacheKey = `${assessmentTrackingId}_${tenantId}`;
-      const cachedData: any = await this.cacheService.get(cacheKey);
-      if (cachedData) {
-        this.loggerService.log(
-          'Assessment data fetch successfully.',
-          apiId,
-          assessmentTrackingId,
-        );
-        return APIResponse.success(
-          response,
-          apiId,
-          cachedData,
-          HttpStatus.OK,
-          'Assessment data fetch successfully.',
-        );
-      }
-      const result = await this.findAssessment(assessmentTrackingId, tenantId);
+      const result = await this.cacheService.getOrLoad({
+        namespace: `assessmentread:${assessmentTrackingId}`,
+        key: `core:${tenantId}`,
+        ttlSeconds: ASSESSMENT_READ_TTL_SECONDS,
+        loader: async () => {
+          const found = await this.findAssessment(assessmentTrackingId, tenantId);
+          return found ? found : null;
+        },
+      });
       if (!result) {
         this.loggerService.error(
           'No data found.',
@@ -123,7 +117,6 @@ export class TrackingAssessmentService {
           HttpStatus.NOT_FOUND,
         );
       }
-      await this.cacheService.set(cacheKey, result, ttl);
       this.loggerService.log(
         'Assessment data fetch successfully.',
         apiId,
@@ -340,6 +333,11 @@ export class TrackingAssessmentService {
         createAssessmentTrackingDto.userId,
       );
 
+      await this.cacheService.invalidate(
+        `assessment:${tenantId}`,
+        'TrackingAssessmentService.createAssessmentTracking',
+      );
+
       this.publishTrackingEvent('created', result.assessmentTrackingId, apiId);
 
       return APIResponse.success(
@@ -457,6 +455,14 @@ export class TrackingAssessmentService {
         }
       }
 
+      await this.cacheService.invalidate(
+        [
+          `assessmentread:${assessmentTrackingId}`,
+          `assessment:${existingRecord.tenantId}`,
+        ],
+        'TrackingAssessmentService.updateAssessmentTracking',
+      );
+
       this.loggerService.log(
         'Assessment and details updated successfully.',
         apiId,
@@ -554,55 +560,70 @@ export class TrackingAssessmentService {
     response: Response,
   ) {
     try {
-      let output_result = [];
+      // Extract tenantId from request headers (validated by TenantGuard)
+      const tenantId = request.tenantId;
 
-      // Dynamically build WHERE clause and params
-      const conditions = [];
-      const params = [];
+      const output_result = await this.cacheService.getOrLoad({
+        namespace: `assessment:${tenantId}`,
+        key: `search:${hashCacheParts(
+          searchFilter?.userId,
+          searchFilter?.contentId,
+          searchFilter?.courseId,
+          searchFilter?.unitId,
+        )}`,
+        ttlSeconds: ASSESSMENT_STATUS_TTL_SECONDS,
+        loader: async () => {
+          // Dynamically build WHERE clause and params
+          const conditions = [];
+          const params = [];
 
-      if (searchFilter?.userId) {
-        conditions.push(`"userId" = $${params.length + 1}`);
-        params.push(searchFilter.userId);
-      }
+          if (searchFilter?.userId) {
+            conditions.push(`"userId" = $${params.length + 1}`);
+            params.push(searchFilter.userId);
+          }
 
-      if (searchFilter?.contentId) {
-        conditions.push(`"contentId" = $${params.length + 1}`);
-        params.push(searchFilter.contentId);
-      }
+          if (searchFilter?.contentId) {
+            conditions.push(`"contentId" = $${params.length + 1}`);
+            params.push(searchFilter.contentId);
+          }
 
-      if (searchFilter?.courseId) {
-        conditions.push(`"courseId" = $${params.length + 1}`);
-        params.push(searchFilter.courseId);
-      }
+          if (searchFilter?.courseId) {
+            conditions.push(`"courseId" = $${params.length + 1}`);
+            params.push(searchFilter.courseId);
+          }
 
-      if (searchFilter?.unitId) {
-        conditions.push(`"unitId" = $${params.length + 1}`);
-        params.push(searchFilter.unitId);
-      }
-      // Always add condition to exclude submittedBy AI
-      conditions.push(`"evaluatedBy" IS DISTINCT FROM 'AI'`);
-      const whereClause =
-        conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+          if (searchFilter?.unitId) {
+            conditions.push(`"unitId" = $${params.length + 1}`);
+            params.push(searchFilter.unitId);
+          }
+          // Always add condition to exclude submittedBy AI
+          conditions.push(`"evaluatedBy" IS DISTINCT FROM 'AI'`);
+          const whereClause =
+            conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-      const result = await this.dataSource.query(
-        `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId"
-         FROM assessment_tracking ${whereClause}`,
-        params,
-      );
+          const result = await this.dataSource.query(
+            `SELECT "assessmentTrackingId", "userId", "courseId", "contentId", "attemptId", "createdOn", "lastAttemptedOn", "totalMaxScore", "totalScore", "updatedOn", "timeSpent", "unitId"
+             FROM assessment_tracking ${whereClause}`,
+            params,
+          );
 
-      for (const tracking of result) {
-        const result_score = await this.dataSource.query(
-          `SELECT "questionId", "pass", "sectionId", "resValue", "duration", "score", "maxScore", "queTitle"
-           FROM assessment_tracking_score_detail WHERE "assessmentTrackingId" = $1`,
-          [tracking.assessmentTrackingId],
-        );
-        //conver score from string to number
-        for (const score of result_score) {
-          score.score = parseFloat(score.score);
-        }
-        tracking.score_details = result_score;
-        output_result.push(tracking);
-      }
+          const loaded = [];
+          for (const tracking of result) {
+            const result_score = await this.dataSource.query(
+              `SELECT "questionId", "pass", "sectionId", "resValue", "duration", "score", "maxScore", "queTitle"
+               FROM assessment_tracking_score_detail WHERE "assessmentTrackingId" = $1`,
+              [tracking.assessmentTrackingId],
+            );
+            //conver score from string to number
+            for (const score of result_score) {
+              score.score = parseFloat(score.score);
+            }
+            tracking.score_details = result_score;
+            loaded.push(tracking);
+          }
+          return loaded;
+        },
+      });
 
       this.loggerService.log('success', 'searchAssessmentTracking');
       return response.status(200).send({
@@ -647,47 +668,83 @@ export class TrackingAssessmentService {
       }
 
       //for courseId, unitId, contentId
-      if(searchFilter?.courseId && searchFilter?.unitId && searchFilter?.contentId) 
+      if(searchFilter?.courseId && searchFilter?.unitId && searchFilter?.contentId)
       {
-      let output_result = [];
       let contentIdArray = searchFilter?.contentId;
-      let contentId_text = '';
-      for (let i = 0; i < contentIdArray.length; i++) {
-        let contentId = contentIdArray[i];
-        if (i == 0) {
-          contentId_text = `${contentId_text}'${contentId}'`;
-        } else {
-          contentId_text = `${contentId_text},'${contentId}'`;
-        }
-      }
-      //courseId
       let courseIdArray = searchFilter?.courseId;
-      let courseId_text = '';
-      for (let i = 0; i < courseIdArray.length; i++) {
-        let courseId = courseIdArray[i];
-        if (i == 0) {
-          courseId_text = `${courseId_text}'${courseId}'`;
-        } else {
-          courseId_text = `${courseId_text},'${courseId}'`;
-        }
-      }
-      //unitId
       let unitIdArray = searchFilter?.unitId;
-      let unitId_text = '';
-      for (let i = 0; i < unitIdArray.length; i++) {
-        let unitId = unitIdArray[i];
-        if (i == 0) {
-          unitId_text = `${unitId_text}'${unitId}'`;
-        } else {
-          unitId_text = `${unitId_text},'${unitId}'`;
-        }
-      }
       let userIdArray = searchFilter?.userId;
-      for (let i = 0; i < userIdArray.length; i++) {
-        let userId = userIdArray[i];
-        const result = await this.dataSource.query(
-          `WITH latest_assessment AS (
-              SELECT 
+
+      const output_result = await this.cacheService.getOrLoad({
+        namespace: `assessment:${tenantId}`,
+        key: `status:${hashCacheParts(
+          userIdArray,
+          contentIdArray,
+          courseIdArray,
+          unitIdArray,
+        )}`,
+        ttlSeconds: ASSESSMENT_STATUS_TTL_SECONDS,
+        loader: async () => {
+          let contentId_text = '';
+          for (let i = 0; i < contentIdArray.length; i++) {
+            let contentId = contentIdArray[i];
+            if (i == 0) {
+              contentId_text = `${contentId_text}'${contentId}'`;
+            } else {
+              contentId_text = `${contentId_text},'${contentId}'`;
+            }
+          }
+          //courseId
+          let courseId_text = '';
+          for (let i = 0; i < courseIdArray.length; i++) {
+            let courseId = courseIdArray[i];
+            if (i == 0) {
+              courseId_text = `${courseId_text}'${courseId}'`;
+            } else {
+              courseId_text = `${courseId_text},'${courseId}'`;
+            }
+          }
+          //unitId
+          let unitId_text = '';
+          for (let i = 0; i < unitIdArray.length; i++) {
+            let unitId = unitIdArray[i];
+            if (i == 0) {
+              unitId_text = `${unitId_text}'${unitId}'`;
+            } else {
+              unitId_text = `${unitId_text},'${unitId}'`;
+            }
+          }
+          const loaded = [];
+          for (let i = 0; i < userIdArray.length; i++) {
+            let userId = userIdArray[i];
+            const result = await this.dataSource.query(
+              `WITH latest_assessment AS (
+                  SELECT
+                      "assessmentTrackingId",
+                      "userId",
+                      "courseId",
+                      "contentId",
+                      "attemptId",
+                      "createdOn",
+                      "lastAttemptedOn",
+                      "totalMaxScore",
+                      "totalScore",
+                      "updatedOn",
+                      "timeSpent",
+                      "unitId",
+                      "tenantId",
+                      ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY CAST("totalScore" AS INTEGER) DESC) as row_num
+                  FROM
+                      assessment_tracking
+                  WHERE
+                  "evaluatedBy" IS DISTINCT FROM 'AI' AND
+                  "userId" = $1
+                      AND "courseId" IN (${courseId_text})
+                      AND "unitId" IN (${unitId_text})
+                      AND "contentId" IN (${contentId_text})
+                      AND "tenantId" = $2
+              )
+              SELECT
                   "assessmentTrackingId",
                   "userId",
                   "courseId",
@@ -700,74 +757,52 @@ export class TrackingAssessmentService {
                   "updatedOn",
                   "timeSpent",
                   "unitId",
-                  "tenantId",
-                  ROW_NUMBER() OVER (PARTITION BY "userId", "courseId", "unitId", "contentId" ORDER BY CAST("totalScore" AS INTEGER) DESC) as row_num
-              FROM 
-                  assessment_tracking
-              WHERE 
-              "evaluatedBy" IS DISTINCT FROM 'AI' AND
-              "userId" = $1 
-                  AND "courseId" IN (${courseId_text}) 
-                  AND "unitId" IN (${unitId_text}) 
-                  AND "contentId" IN (${contentId_text}) 
-                  AND "tenantId" = $2
-          )
-          SELECT 
-              "assessmentTrackingId",
-              "userId",
-              "courseId",
-              "contentId",
-              "attemptId",
-              "createdOn",
-              "lastAttemptedOn",
-              "totalMaxScore",
-              "totalScore",
-              "updatedOn",
-              "timeSpent",
-              "unitId",
-              "tenantId"
-          FROM 
-              latest_assessment
-          WHERE 
-              row_num = 1;`,
-          [userId, tenantId],
-        );
-        for (let j = 0; j < result.length; j++) {
-          let temp_result = result[j];
-          let maxMark = temp_result?.totalMaxScore;
-          let scoreMark = temp_result?.totalScore;
-          let percentage = (scoreMark / maxMark) * 100;
-          const roundedPercentage = parseFloat(percentage.toFixed(2)); // Rounds to 2 decimal places
-          temp_result.percentage = roundedPercentage;
-          result[j] = temp_result;
-        }
-        let percentage = 0;
-        let status = '';
-        if (result.length == contentIdArray.length) {
-          let total_percentage = 0;
-          for (let j = 0; j < result.length; j++) {
-            let temp_result = result[j];
-            total_percentage = total_percentage + temp_result?.percentage;
+                  "tenantId"
+              FROM
+                  latest_assessment
+              WHERE
+                  row_num = 1;`,
+              [userId, tenantId],
+            );
+            for (let j = 0; j < result.length; j++) {
+              let temp_result = result[j];
+              let maxMark = temp_result?.totalMaxScore;
+              let scoreMark = temp_result?.totalScore;
+              let percentage = (scoreMark / maxMark) * 100;
+              const roundedPercentage = parseFloat(percentage.toFixed(2)); // Rounds to 2 decimal places
+              temp_result.percentage = roundedPercentage;
+              result[j] = temp_result;
+            }
+            let percentage = 0;
+            let status = '';
+            if (result.length == contentIdArray.length) {
+              let total_percentage = 0;
+              for (let j = 0; j < result.length; j++) {
+                let temp_result = result[j];
+                total_percentage = total_percentage + temp_result?.percentage;
+              }
+              let temp_percentage = total_percentage / result.length;
+              percentage = parseFloat(temp_percentage.toFixed(2));
+              status = 'Completed';
+            } else if (result.length == 0) {
+              percentage = 0;
+              status = 'Not_Started';
+            } else {
+              percentage = 0;
+              status = 'In_Progress';
+            }
+            let temp_obj = {
+              userId: userId,
+              percentageString: `${percentage}%`,
+              percentage: `${percentage}`,
+              status: status,
+              assessments: result,
+            };
+            loaded.push(temp_obj);
           }
-          let temp_percentage = total_percentage / result.length;
-          percentage = parseFloat(temp_percentage.toFixed(2));
-          status = 'Completed';
-        } else if (result.length == 0) {
-          percentage = 0;
-          status = 'Not_Started';
-        } else {
-          percentage = 0;
-          status = 'In_Progress';
-        }
-        let temp_obj = {
-          userId: userId,
-          percentageString: `${percentage}%`,
-          percentage: `${percentage}`,
-          status: status,
-          assessments: result,
-        };
-        output_result.push(temp_obj);
-      }
+          return loaded;
+        },
+      });
 
       this.loggerService.log('success', 'searchStatusAssessmentTracking');
       return response.status(200).send({
@@ -777,48 +812,57 @@ export class TrackingAssessmentService {
       });
       }
       else{
-        let output_result = [];
         let userIdArray = searchFilter?.userId;
-        for (let i = 0; i < userIdArray.length; i++) {
-          let userId = userIdArray[i];
-          const result = await this.dataSource.query(
-            `SELECT 
-                "assessmentTrackingId",
-                "userId",
-                "courseId",
-                "contentId",
-                "attemptId",
-                "createdOn",
-                "lastAttemptedOn",
-                "totalMaxScore",
-                "totalScore",
-                "updatedOn",
-                "timeSpent",
-                "unitId",
-                "tenantId"
-            FROM 
-                assessment_tracking
-            WHERE 
-                "evaluatedBy" IS DISTINCT FROM 'AI' AND
-                "userId" = $1 
-                AND "tenantId" = $2;`,
-            [userId, tenantId],
-          );
-          for (let j = 0; j < result.length; j++) {
-            let temp_result = result[j];
-            let maxMark = temp_result?.totalMaxScore;
-            let scoreMark = temp_result?.totalScore;
-            let percentage = (scoreMark / maxMark) * 100;
-            const roundedPercentage = parseFloat(percentage.toFixed(2)); // Rounds to 2 decimal places
-            temp_result.percentage = roundedPercentage;
-            result[j] = temp_result;
-          }
-          let temp_obj = {
-            userId: userId,
-            assessments: result,
-          };
-          output_result.push(temp_obj);
-        }
+
+        const output_result = await this.cacheService.getOrLoad({
+          namespace: `assessment:${tenantId}`,
+          key: `status:${hashCacheParts(userIdArray, null, null, null)}`,
+          ttlSeconds: ASSESSMENT_STATUS_TTL_SECONDS,
+          loader: async () => {
+            const loaded = [];
+            for (let i = 0; i < userIdArray.length; i++) {
+              let userId = userIdArray[i];
+              const result = await this.dataSource.query(
+                `SELECT
+                    "assessmentTrackingId",
+                    "userId",
+                    "courseId",
+                    "contentId",
+                    "attemptId",
+                    "createdOn",
+                    "lastAttemptedOn",
+                    "totalMaxScore",
+                    "totalScore",
+                    "updatedOn",
+                    "timeSpent",
+                    "unitId",
+                    "tenantId"
+                FROM
+                    assessment_tracking
+                WHERE
+                    "evaluatedBy" IS DISTINCT FROM 'AI' AND
+                    "userId" = $1
+                    AND "tenantId" = $2;`,
+                [userId, tenantId],
+              );
+              for (let j = 0; j < result.length; j++) {
+                let temp_result = result[j];
+                let maxMark = temp_result?.totalMaxScore;
+                let scoreMark = temp_result?.totalScore;
+                let percentage = (scoreMark / maxMark) * 100;
+                const roundedPercentage = parseFloat(percentage.toFixed(2)); // Rounds to 2 decimal places
+                temp_result.percentage = roundedPercentage;
+                result[j] = temp_result;
+              }
+              let temp_obj = {
+                userId: userId,
+                assessments: result,
+              };
+              loaded.push(temp_obj);
+            }
+            return loaded;
+          },
+        });
         //get all assesments from userid
         return response.status(200).send({
           success: true,
@@ -1188,6 +1232,15 @@ export class TrackingAssessmentService {
           apiId,
           assessmentTrackingId,
         );
+
+        await this.cacheService.invalidate(
+          [
+            `assessmentread:${assessmentTrackingId}`,
+            `assessment:${getAssessmentData.tenantId}`,
+          ],
+          'TrackingAssessmentService.deleteAssessmentTracking',
+        );
+
         return APIResponse.success(
           response,
           apiId,

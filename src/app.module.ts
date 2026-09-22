@@ -2,8 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './common/database/database.module';
-import { CacheModule } from '@nestjs/cache-manager';
-import { MemoryStore } from 'cache-manager-memory-store';
+import { CacheModule } from './cache/cache.module';
 import { ConfigModule } from '@nestjs/config';
 import { TrackingAssessmentModule } from 'src/modules/tracking_assessment/tracking_assessment.module';
 import { TrackingContentModule } from 'src/modules/tracking_content/tracking_content.module';
@@ -24,7 +23,7 @@ import { AnswerSheetSubmissionsModule } from './modules/answer_sheet_submissions
       isGlobal: true,
     }),
     DatabaseModule,
-    CacheModule.register({ isGlobal: true, store: MemoryStore }),
+    CacheModule,
     CertificateModule,
     UserCertificateModule,
     TelemetryModule,

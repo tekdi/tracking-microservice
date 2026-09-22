@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { Response } from 'express';
 import puppeteer, { Browser, Page } from 'puppeteer';
 import { KafkaService } from 'src/kafka/kafka.service';
+import { CacheService } from 'src/cache/cache.service';
 
 @Injectable()
 export class CertificateService implements OnModuleDestroy {
@@ -23,6 +24,7 @@ export class CertificateService implements OnModuleDestroy {
     private configService: ConfigService,
     private loggerService: LoggerService,
     private readonly kafkaService: KafkaService,
+    private readonly cacheService: CacheService,
   ) {}
 
   /**
@@ -387,9 +389,18 @@ export class CertificateService implements OnModuleDestroy {
         userCertificate.issuedOn = data.issuedOn;
         userCertificate.status = data.status;
         const savedCertificate = await this.userCourseCertificateRepository.save(userCertificate);
-        
+
+        // tenantId is not on the issueCredential DTO - read it from the record fetched above.
+        await this.cacheService.invalidate(
+          [
+            `usercert:${userCertificate.tenantId}`,
+            `course:${userCertificate.tenantId}`,
+          ],
+          'CertificateService.updateUserCertificate',
+        );
+
         this.loggerService.log('Successfully updated user certificate');
-        
+
         // Publish Kafka event after successful update
         await this.publishCertificateIssuedEvent(
           savedCertificate.usercertificateId,
