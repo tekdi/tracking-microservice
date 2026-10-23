@@ -1,4 +1,4 @@
-FROM node:22.23.4-alpine as dependencies
+FROM node:22.23.4-slim as dependencies
 WORKDIR /app
 
 # Install required system dependencies for Puppeteer
