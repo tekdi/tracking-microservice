@@ -9,8 +9,6 @@ import { Repository } from 'typeorm';
 import { Response } from 'express';
 import APIResponse from 'src/common/utils/response';
 import { IsUUID, isUUID } from 'class-validator';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { LoggerService } from 'src/common/logger/logger.service';
