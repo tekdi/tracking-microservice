@@ -26,6 +26,10 @@ import { AiAssessment } from '../ai_assessment/entities/ai-assessment-entity';
 import { AnswerSheetSubmissions } from 'src/modules/answer_sheet_submissions/entities/answer-sheet-submissions-entity';
 import { AnswerSheetSubmissionsService } from 'src/modules/answer_sheet_submissions/answer_sheet_submissions.service';
 import { In, Not } from 'typeorm';
+import * as multiAttemptConfig from './multi-attempt-assessments.json';
+
+// shortcut: hardcoded contentId allowlist (multi-attempt assessments); replace with an assessment-level config flag.
+const MULTI_ATTEMPT_CONTENT_IDS: string[] = multiAttemptConfig.contentIds;
 
 @Injectable()
 export class TrackingAssessmentService {
@@ -180,6 +184,11 @@ export class TrackingAssessmentService {
     try {
       // Extract tenantId from request (validated by TenantGuard)
       const tenantId = request.tenantId;
+      this.loggerService.log(
+        `Create assessment request received: course=${createAssessmentTrackingDto?.courseId}, content=${createAssessmentTrackingDto?.contentId}, unit=${createAssessmentTrackingDto?.unitId}, attempt=${createAssessmentTrackingDto?.attemptId}, submitedBy=${createAssessmentTrackingDto?.submitedBy}`,
+        apiId,
+        createAssessmentTrackingDto?.userId,
+      );
 
       const allowedKeys = [
         'assessmentTrackingId',
@@ -288,11 +297,40 @@ export class TrackingAssessmentService {
             assessmentTrackingId: existingRecord.assessmentTrackingId,
           });
       } else {
+        const { userId, courseId, contentId, unitId } =
+          createAssessmentTrackingDto;
+        const multiAttemptAllowed =
+          MULTI_ATTEMPT_CONTENT_IDS.includes(contentId);
+        if (multiAttemptAllowed) {
+          this.loggerService.log(
+            `Multi-attempt allowed (hardcoded list), skipping duplicate check: course=${courseId}, content=${contentId}, unit=${unitId}`,
+            apiId,
+            userId,
+          );
+        } else {
+          const exists = await this.assessmentTrackingRepository.findOne({
+            where: { userId, courseId, contentId, unitId },
+            select: ['assessmentTrackingId'],
+          });
+          if (exists) {
+            this.loggerService.warn(
+              `Duplicate assessment rejected: user=${userId}, course=${courseId}, content=${contentId}, unit=${unitId}, existingTrackingId=${exists.assessmentTrackingId}`,
+              apiId,
+            );
+            return APIResponse.error(
+              response,
+              apiId,
+              'Assessment already exist',
+              'Assessment already exist',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+        }
         result = await this.assessmentTrackingRepository.save(
           createAssessmentTrackingDto,
         );
       }
-      
+
       //save score details
       try {
         let testId = result.assessmentTrackingId;
@@ -325,17 +363,22 @@ export class TrackingAssessmentService {
         //insert multiple items
         const result_score =
           await this.assessmentTrackingScoreDetailRepository.save(scoreObj);
+        this.loggerService.log(
+          `Score details saved: trackingId=${testId}, count=${scoreObj.length}`,
+          apiId,
+          createAssessmentTrackingDto.userId,
+        );
       } catch (e) {
         //Error in CreateScoreDetail!
         this.loggerService.error(
-          'Internal Server Error in CreateScoreDetail',
-          'INTERNAL_SERVER_ERROR',
+          `Internal Server Error in CreateScoreDetail: trackingId=${result?.assessmentTrackingId}`,
+          e.message || 'INTERNAL_SERVER_ERROR',
           apiId,
-          e.message || 'Internal Server Error',
+          createAssessmentTrackingDto.userId,
         );
       }
       this.loggerService.log(
-        'Assessment submitted successfully.',
+        `Assessment submitted successfully: trackingId=${result.assessmentTrackingId}`,
         apiId,
         createAssessmentTrackingDto.userId,
       );
@@ -351,10 +394,10 @@ export class TrackingAssessmentService {
       );
     } catch (e) {
       this.loggerService.error(
-        'Failed to fetch assessment data.',
-        'INTERNAL_SERVER_ERROR',
+        'Failed to create assessment.',
+        e.message || 'INTERNAL_SERVER_ERROR',
         apiId,
-        createAssessmentTrackingDto.userId,
+        createAssessmentTrackingDto?.userId,
       );
       const errorMessage = e.message || 'Internal Server Error';
       return APIResponse.error(
