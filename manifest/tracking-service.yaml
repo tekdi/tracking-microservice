@@ -24,7 +24,7 @@ spec:
         ports:
         - containerPort: 3000
         envFrom:
-        - configMapRef:
+        - secretRef:
             name: tracking-service-config
         resources: {}
       restartPolicy: Always

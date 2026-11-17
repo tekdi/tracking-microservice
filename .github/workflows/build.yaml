@@ -4,14 +4,33 @@ on:
   push:
     tags:
       - "v*"
+
   workflow_dispatch:
     inputs:
       environment:
-        description: "Target environment (qa or prod)"
+        description: "Target environment"
         required: true
         default: "qa"
-      tag:
-        description: "Image tag to deploy"
+        type: choice
+        options:
+          - qa
+          - prod
+
+      source_type:
+        description: "Build from branch or tag"
+        required: true
+        default: "branch"
+        type: choice
+        options:
+          - branch
+          - tag
+
+      source:
+        description: "Branch name or tag name (e.g. main or v0.3.3)"
+        required: true
+
+      image_tag:
+        description: "Docker image tag"
         required: true
 
 jobs:
@@ -19,16 +38,18 @@ jobs:
     name: Build and Push Docker Image to AWS ECR
     runs-on: ubuntu-latest
 
-    # Use qa for tag pushes, or the chosen input for workflow_dispatch
-    environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'qa' }}
+    environment: ${{ inputs.environment || 'qa' }}
 
     env:
-      ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'qa' }}
-      TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+      SOURCE_TYPE: ${{ inputs.source_type || 'tag' }}
+      SOURCE: ${{ inputs.source || github.ref_name }}
+      IMAGE_TAG: ${{ inputs.image_tag || github.ref_name }}
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source || github.ref_name }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -37,22 +58,27 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Extract ECR Registry from Repository
+      - name: Extract ECR Registry
+        env:
+          FULL_REPO: ${{ secrets.ECR_REPOSITORY }}
         run: |
-          FULL_REPO="${{ secrets.ECR_REPOSITORY }}"
-          REGISTRY="$(echo $FULL_REPO | cut -d'/' -f1)"
-          echo "ECR_REGISTRY=$REGISTRY" >> $GITHUB_ENV
-          echo "ECR_REPOSITORY=$FULL_REPO" >> $GITHUB_ENV
+          REGISTRY="$(echo "$FULL_REPO" | cut -d'/' -f1)"
+          echo "ECR_REGISTRY=$REGISTRY" >> "$GITHUB_ENV"
+          echo "ECR_REPOSITORY=$FULL_REPO" >> "$GITHUB_ENV"
 
       - name: Log in to Amazon ECR
         run: |
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
-            | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+          aws ecr get-login-password --region "${{ secrets.AWS_REGION }}" \
+            | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
       - name: Build, Tag, and Push Docker Image
         run: |
-          IMAGE_URI="${{ env.ECR_REPOSITORY }}:${{ env.TAG }}"
-          echo "Building image: $IMAGE_URI"
-          docker build -t $IMAGE_URI .
-          docker push $IMAGE_URI
-          docker rmi $IMAGE_URI
+          IMAGE_URI="$ECR_REPOSITORY:$IMAGE_TAG"
+
+          echo "Source type: $SOURCE_TYPE"
+          echo "Source: $SOURCE"
+          echo "Image: $IMAGE_URI"
+
+          docker build -t "$IMAGE_URI" .
+          docker push "$IMAGE_URI"
+          docker rmi "$IMAGE_URI"
