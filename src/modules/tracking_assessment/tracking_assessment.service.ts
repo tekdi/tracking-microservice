@@ -299,15 +299,18 @@ export class TrackingAssessmentService {
       } else {
         const { userId, courseId, contentId, unitId } =
           createAssessmentTrackingDto;
+        // Duplicates are checked only for standalone assessments (content = unit = course);
+        // if any of the three differs, duplicates are allowed.
+        const isStandalone = contentId === unitId && unitId === courseId;
         const multiAttemptAllowed =
           MULTI_ATTEMPT_CONTENT_IDS.includes(contentId);
-        if (multiAttemptAllowed) {
+        if (isStandalone && multiAttemptAllowed) {
           this.loggerService.log(
             `Multi-attempt allowed (hardcoded list), skipping duplicate check: course=${courseId}, content=${contentId}, unit=${unitId}`,
             apiId,
             userId,
           );
-        } else {
+        } else if (isStandalone) {
           const exists = await this.assessmentTrackingRepository.findOne({
             where: { userId, courseId, contentId, unitId },
             select: ['assessmentTrackingId'],
