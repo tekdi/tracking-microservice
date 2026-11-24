@@ -386,7 +386,13 @@ export class TrackingAssessmentService {
         createAssessmentTrackingDto.userId,
       );
 
-      this.publishTrackingEvent('created', result.assessmentTrackingId, apiId);
+      // Awaited so the publish can't be cut off by a pod stop after the response;
+      // publishTrackingEvent never throws, so the API response is unaffected.
+      await this.publishTrackingEvent(
+        'created',
+        result.assessmentTrackingId,
+        apiId,
+      );
 
       return APIResponse.success(
         response,
@@ -1265,6 +1271,9 @@ export class TrackingAssessmentService {
     assessmentTrackingId: string,
     apiId: string,
   ): Promise<void> {
+    // Logged through loggerService (combined.log) with the tracking id as `user`,
+    // so every outcome of a publish can be traced per assessment afterwards.
+    const eventName = `ASSESSMENT_${eventType.toUpperCase()}`;
     try {
       let trackingData: any = {};
 
@@ -1274,35 +1283,60 @@ export class TrackingAssessmentService {
           deletedAt: new Date().toISOString(),
         };
       } else {
-        try {
-          const assessmentData =
-            await this.assessmentTrackingRepository.findOne({
-              where: { assessmentTrackingId },
-            });
+        const assessmentData = await this.assessmentTrackingRepository.findOne({
+          where: { assessmentTrackingId },
+        });
 
-          const assessmentScoreData =
-            await this.assessmentTrackingScoreDetailRepository.find({
-              where: { assessmentTrackingId },
-            });
-
-          trackingData = {
-            ...assessmentData,
-            scores: assessmentScoreData,
-          };
-        } catch (error) {
-          trackingData = { assessmentTrackingId };
+        // findOne returns null (no throw) when the row is not visible; publishing
+        // {scores:[]} would be rejected by the consumer and lost silently.
+        if (!assessmentData) {
+          this.loggerService.error(
+            `${eventName} NOT published: assessment row not found when building Kafka payload`,
+            'KAFKA_PAYLOAD_NOT_FOUND',
+            apiId,
+            assessmentTrackingId,
+          );
+          return;
         }
+
+        const assessmentScoreData =
+          await this.assessmentTrackingScoreDetailRepository.find({
+            where: { assessmentTrackingId },
+          });
+
+        trackingData = {
+          ...assessmentData,
+          scores: assessmentScoreData,
+        };
       }
 
-      console.log(trackingData);
-
-      await this.kafkaService.publishTrackingEvent(
+      const published = await this.kafkaService.publishTrackingEvent(
         eventType,
         trackingData,
         assessmentTrackingId,
       );
+
+      if (published) {
+        this.loggerService.log(
+          `${eventName} published to Kafka`,
+          apiId,
+          assessmentTrackingId,
+        );
+      } else {
+        this.loggerService.error(
+          `${eventName} NOT published: Kafka is disabled`,
+          'KAFKA_DISABLED',
+          apiId,
+          assessmentTrackingId,
+        );
+      }
     } catch (error) {
-      // Handle/log error silently
+      this.loggerService.error(
+        `${eventName} NOT published: ${error?.message || 'unknown error'}`,
+        'KAFKA_PUBLISH_FAILED',
+        apiId,
+        assessmentTrackingId,
+      );
     }
   }
   public async offlineAssessmentCheck(
