@@ -386,13 +386,7 @@ export class TrackingAssessmentService {
         createAssessmentTrackingDto.userId,
       );
 
-      // Awaited so the publish can't be cut off by a pod stop after the response;
-      // publishTrackingEvent never throws, so the API response is unaffected.
-      await this.publishTrackingEvent(
-        'created',
-        result.assessmentTrackingId,
-        apiId,
-      );
+      this.publishTrackingEvent('created', result.assessmentTrackingId, apiId);
 
       return APIResponse.success(
         response,
@@ -1271,9 +1265,10 @@ export class TrackingAssessmentService {
     assessmentTrackingId: string,
     apiId: string,
   ): Promise<void> {
-    // Logged through loggerService (combined.log) with the tracking id as `user`,
-    // so every outcome of a publish can be traced per assessment afterwards.
+    // Logging only: lines go to combined.log with the tracking id as `user`.
+    // Behaviour is unchanged (same payload, still fire-and-forget at the caller).
     const eventName = `ASSESSMENT_${eventType.toUpperCase()}`;
+    this.loggerService.log(`${eventName} publish started`, apiId, assessmentTrackingId);
     try {
       let trackingData: any = {};
 
@@ -1283,32 +1278,42 @@ export class TrackingAssessmentService {
           deletedAt: new Date().toISOString(),
         };
       } else {
-        const assessmentData = await this.assessmentTrackingRepository.findOne({
-          where: { assessmentTrackingId },
-        });
+        try {
+          const assessmentData =
+            await this.assessmentTrackingRepository.findOne({
+              where: { assessmentTrackingId },
+            });
 
-        // findOne returns null (no throw) when the row is not visible; publishing
-        // {scores:[]} would be rejected by the consumer and lost silently.
-        if (!assessmentData) {
+          if (!assessmentData) {
+            this.loggerService.error(
+              `${eventName}: assessment row not found while building payload (payload will have no row data)`,
+              'KAFKA_PAYLOAD_NOT_FOUND',
+              apiId,
+              assessmentTrackingId,
+            );
+          }
+
+          const assessmentScoreData =
+            await this.assessmentTrackingScoreDetailRepository.find({
+              where: { assessmentTrackingId },
+            });
+
+          trackingData = {
+            ...assessmentData,
+            scores: assessmentScoreData,
+          };
+        } catch (error) {
           this.loggerService.error(
-            `${eventName} NOT published: assessment row not found when building Kafka payload`,
-            'KAFKA_PAYLOAD_NOT_FOUND',
+            `${eventName}: reading payload data failed: ${error?.message || 'unknown error'}`,
+            'KAFKA_PAYLOAD_READ_FAILED',
             apiId,
             assessmentTrackingId,
           );
-          return;
+          trackingData = { assessmentTrackingId };
         }
-
-        const assessmentScoreData =
-          await this.assessmentTrackingScoreDetailRepository.find({
-            where: { assessmentTrackingId },
-          });
-
-        trackingData = {
-          ...assessmentData,
-          scores: assessmentScoreData,
-        };
       }
+
+      console.log(trackingData);
 
       const published = await this.kafkaService.publishTrackingEvent(
         eventType,
