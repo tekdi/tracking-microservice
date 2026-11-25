@@ -193,10 +193,10 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
     eventType: 'created' | 'updated' | 'deleted',
     trackingData: any,
     assessmentTrackingId: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (!this.isKafkaEnabled) {
       this.logger.warn('Kafka is disabled. Skipping tracking event publish.');
-      return; // Do nothing if Kafka is disabled
+      return false; // Do nothing if Kafka is disabled
     }
 
     const topic = this.configService.get<string>(
@@ -230,6 +230,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(
       `Tracking ${fullEventType} event published for tracking ${assessmentTrackingId}`,
     );
+    return true;
   }
   async publishUserCourseEvent(
     eventType: 'course_created' | 'course_updated',

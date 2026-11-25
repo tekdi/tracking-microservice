@@ -1265,6 +1265,10 @@ export class TrackingAssessmentService {
     assessmentTrackingId: string,
     apiId: string,
   ): Promise<void> {
+    // Logging only: lines go to combined.log with the tracking id as `user`.
+    // Behaviour is unchanged (same payload, still fire-and-forget at the caller).
+    const eventName = `ASSESSMENT_${eventType.toUpperCase()}`;
+    this.loggerService.log(`${eventName} publish started`, apiId, assessmentTrackingId);
     try {
       let trackingData: any = {};
 
@@ -1280,6 +1284,15 @@ export class TrackingAssessmentService {
               where: { assessmentTrackingId },
             });
 
+          if (!assessmentData) {
+            this.loggerService.error(
+              `${eventName}: assessment row not found while building payload (payload will have no row data)`,
+              'KAFKA_PAYLOAD_NOT_FOUND',
+              apiId,
+              assessmentTrackingId,
+            );
+          }
+
           const assessmentScoreData =
             await this.assessmentTrackingScoreDetailRepository.find({
               where: { assessmentTrackingId },
@@ -1290,19 +1303,45 @@ export class TrackingAssessmentService {
             scores: assessmentScoreData,
           };
         } catch (error) {
+          this.loggerService.error(
+            `${eventName}: reading payload data failed: ${error?.message || 'unknown error'}`,
+            'KAFKA_PAYLOAD_READ_FAILED',
+            apiId,
+            assessmentTrackingId,
+          );
           trackingData = { assessmentTrackingId };
         }
       }
 
       console.log(trackingData);
 
-      await this.kafkaService.publishTrackingEvent(
+      const published = await this.kafkaService.publishTrackingEvent(
         eventType,
         trackingData,
         assessmentTrackingId,
       );
+
+      if (published) {
+        this.loggerService.log(
+          `${eventName} published to Kafka`,
+          apiId,
+          assessmentTrackingId,
+        );
+      } else {
+        this.loggerService.error(
+          `${eventName} NOT published: Kafka is disabled`,
+          'KAFKA_DISABLED',
+          apiId,
+          assessmentTrackingId,
+        );
+      }
     } catch (error) {
-      // Handle/log error silently
+      this.loggerService.error(
+        `${eventName} NOT published: ${error?.message || 'unknown error'}`,
+        'KAFKA_PUBLISH_FAILED',
+        apiId,
+        assessmentTrackingId,
+      );
     }
   }
   public async offlineAssessmentCheck(
